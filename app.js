@@ -87,7 +87,7 @@ const TEMPLATES = {
         tiertyp: 'Ferkel',
         diagnosis: 'Lahmheit + liegt auf der Seite',
         medication: 'Vertimoxin + Dexatat',
-        dosage: '10ml + 10ml',
+        dosage: '1,0ml + 1,0ml',
         duration: '2',
         method: 'i.m.'
     },
@@ -95,7 +95,7 @@ const TEMPLATES = {
         tiertyp: 'Ferkel',
         diagnosis: 'Lahmheit + liegt auf der Seite',
         medication: 'Vertimoxin + Dexatat',
-        dosage: '12ml + 12ml',
+        dosage: '1,2ml + 1,2ml',
         duration: '2',
         method: 'i.m.'
     },
@@ -103,7 +103,7 @@ const TEMPLATES = {
         tiertyp: 'Ferkel',
         diagnosis: 'Lahmheit + liegt auf der Seite',
         medication: 'Vertimoxin + Dexatat',
-        dosage: '14ml + 14ml',
+        dosage: '1,4ml + 1,4ml',
         duration: '2',
         method: 'i.m.'
     }
