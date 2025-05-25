@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#2196F3">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Sauen App">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="description" content="Digitale Behandlungsverwaltung für Schweine">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- iOS Icons -->
+    <link rel="apple-touch-icon" href="icon-180.png">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles.css">
+    
+    <title>Sauen Behandlung</title>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div class="loading-screen" id="loading-screen">
+        <div class="loading-icon">🐷</div>
+        <div class="loading-text">Sauen App wird geladen...</div>
+    </div>
+    
+    <!-- Offline Indicator -->
+    <div class="offline-indicator" id="offline-indicator">
+        Sie sind offline - Änderungen werden lokal gespeichert
+    </div>
+    
+    <!-- Sync Status -->
+    <div class="sync-status" id="sync-status">
+        <span class="sync-icon">🔄</span>
+        <span class="sync-text">Synchronisiere...</span>
+    </div>
+    
+    <!-- Header -->
+    <header class="header">
+        <h1>Sauen Behandlung</h1>
+        <button class="header-action" id="sync-button" title="Synchronisieren">
+            <span class="sync-icon">🔄</span>
+        </button>
+    </header>
+    
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Formulartab -->
+        <div id="tab-form" class="tab active">
+            <div class="container">
+                <div class="card">
+                    <div class="card-title" id="form-title">Neue Behandlung erfassen</div>
+                    
+                    <!-- Template Section -->
+                    <div class="template-section">
+                        <div class="template-title">Vorlage verwenden:</div>
+                        <div class="template-buttons">
+                            <button class="template-btn" data-template="dz-wz">Behandlungsplan DZ + WZ</button>
+                            <button class="template-btn" data-template="ferkel">Behandlungsplan Ferkel</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Quick Select -->
+                    <div class="form-group">
+                        <label for="template-select">Schnellauswahl Behandlung:</label>
+                        <select id="template-select">
+                            <option value="">-- Bitte wählen --</option>
+                            <optgroup label="Sauen (DZ + WZ)">
+                                <option value="lahmheit-altsau">Lahmheit - Altsau</option>
+                                <option value="lahmheit-jungsau">Lahmheit - Jungsau</option>
+                                <option value="gelähmt-altsau">Gelähmt - Altsau</option>
+                                <option value="gelähmt-jungsau">Gelähmt - Jungsau</option>
+                            </optgroup>
+                            <optgroup label="Ferkel">
+                                <option value="ferkel-woche1">Ferkel - 1. Woche</option>
+                                <option value="ferkel-woche2">Ferkel - 2. Woche</option>
+                                <option value="ferkel-woche3">Ferkel - 3. Woche</option>
+                                <option value="ferkel-woche4">Ferkel - 4. Woche</option>
+                                <option value="ferkel-woche5">Ferkel - 5. Woche</option>
+                                <option value="ferkel-woche6">Ferkel - 6. Woche</option>
+                                <option value="ferkel-woche7">Ferkel - 7. Woche</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                    
+                    <!-- Form Fields -->
+                    <form id="treatment-form">
+                        <input type="hidden" id="treatment-id" value="">
+                        <input type="hidden" id="parent-id" value="">
+                        
+                        <div class="form-group">
+                            <label for="tiertyp">Tiertyp:</label>
+                            <select id="tiertyp" required>
+                                <option value="Altsau">Altsau</option>
+                                <option value="Jungsau">Jungsau</option>
+                                <option value="Ferkel">Ferkel</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="sauNumber">Sau-Nr./Ohrmarke:</label>
+                            <input type="text" id="sauNumber" placeholder="z.B. 2023-45" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="treatmentDate">Behandlungsdatum:</label>
+                            <input type="date" id="treatmentDate" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="diagnosis">Diagnose/Grund:</label>
+                            <input type="text" id="diagnosis" placeholder="z.B. Lahmheit" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="medication">Medikament/Behandlung:</label>
+                            <input type="text" id="medication" placeholder="z.B. Procapen">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="dosage">Dosierung:</label>
+                            <input type="text" id="dosage" placeholder="z.B. 15ml">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="administrationMethod">Verabreichungsart:</label>
+                            <select id="administrationMethod">
+                                <option value="i.m.">i.m. (intramuskulär)</option>
+                                <option value="s.c.">s.c. (subkutan)</option>
+                                <option value="i.v.">i.v. (intravenös)</option>
+                                <option value="oral">oral</option>
+                                <option value="lokal">lokal</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="person">Behandelnde Person:</label>
+                            <input type="text" id="person" placeholder="Name/Kürzel">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="treatment-duration">Behandlungsdauer (Tage):</label>
+                            <input type="number" id="treatment-duration" placeholder="z.B. 3" min="1">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="waitingPeriod">Wartezeit (Tage):</label>
+                            <input type="number" id="waitingPeriod" placeholder="z.B. 7" min="0">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="status">Status:</label>
+                            <select id="status">
+                                <option value="In Behandlung">In Behandlung</option>
+                                <option value="Abgeschlossen">Abgeschlossen</option>
+                                <option value="Nachbehandlung nötig">Nachbehandlung nötig</option>
+                                <option value="Genesen">Genesen</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="notes">Bemerkungen:</label>
+                            <textarea id="notes" rows="3" placeholder="Zusätzliche Notizen"></textarea>
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div class="form-actions">
+                            <button type="submit" id="save-btn" class="btn btn-primary">
+                                Behandlung speichern
+                            </button>
+                            
+                            <div id="edit-buttons" style="display: none;">
+                                <button type="button" class="btn btn-secondary" id="cancel-edit">
+                                    Abbrechen
+                                </button>
+                                <button type="button" class="btn btn-danger" id="delete-treatment">
+                                    Behandlung löschen
+                                </button>
+                            </div>
+                            
+                            <div id="new-buttons">
+                                <button type="button" class="btn btn-secondary" id="clear-form">
+                                    Formular zurücksetzen
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- Template Cards -->
+                <div id="template-dz-wz" class="card template-card" style="display: none;">
+                    <div class="card-title">Behandlungsplan DZ + WZ</div>
+                    <table class="treatment-table">
+                        <thead>
+                            <tr>
+                                <th>Grund</th>
+                                <th>Altsau</th>
+                                <th>Jungsau</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Lahmheit</td>
+                                <td>15ml Procapen<br>5ml Animeloxan</td>
+                                <td>12ml Procapen<br>5ml Animeloxan</td>
+                            </tr>
+                            <tr>
+                                <td>gelähmt</td>
+                                <td>10ml Dexatat</td>
+                                <td>10ml Dexatat</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="treatment-duration">
+                        <strong>Dauer der Anwendung:</strong>
+                        <div class="duration-item">Procapen: 3 Tage</div>
+                        <div class="duration-item">Dexatat: 2 Tage</div>
+                    </div>
+                    <button class="btn btn-secondary close-template">Schließen</button>
+                </div>
+                
+                <div id="template-ferkel" class="card template-card" style="display: none;">
+                    <div class="card-title">Behandlungsplan Ferkel</div>
+                    <table class="treatment-table">
+                        <thead>
+                            <tr>
+                                <th rowspan="2">Grund</th>
+                                <th colspan="4">Woche</th>
+                            </tr>
+                            <tr>
+                                <th>1. Woche</th>
+                                <th>2. Woche</th>
+                                <th>3. Woche</th>
+                                <th>4. Woche</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td rowspan="2">Lahmheit + liegt auf der Seite</td>
+                                <td>0,6ml Vertimoxin</td>
+                                <td>0,7ml Vertimoxin</td>
+                                <td>0,8ml Vertimoxin</td>
+                                <td>0,9ml Vertimoxin</td>
+                            </tr>
+                            <tr>
+                                <td>0,6ml Dexatat</td>
+                                <td>0,7ml Dexatat</td>
+                                <td>0,8ml Dexatat</td>
+                                <td>0,9ml Dexatat</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <button class="btn btn-secondary close-template">Schließen</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Listentab -->
+        <div id="tab-list" class="tab">
+            <div class="container">
+                <!-- Statistics -->
+                <div class="stats-section">
+                    <div class="stat-card">
+                        <div class="stat-number" id="active-count">0</div>
+                        <div class="stat-label">Aktiv</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="today-count">0</div>
+                        <div class="stat-label">Heute</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="total-count">0</div>
+                        <div class="stat-label">Gesamt</div>
+                    </div>
+                </div>
+                
+                <!-- Export Actions -->
+                <div class="export-section">
+                    <button class="btn btn-secondary" id="export-csv">
+                        📄 Als CSV exportieren
+                    </button>
+                    <button class="btn btn-secondary" id="export-json">
+                        📊 Als JSON exportieren
+                    </button>
+                </div>
+                
+                <!-- Treatment List Container -->
+                <div id="treatment-list-container" class="treatment-list-container">
+                    <div id="treatment-list" class="treatment-list">
+                        <!-- Virtual scrolling content -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Suchtab -->
+        <div id="tab-search" class="tab">
+            <div class="container">
+                <div class="card">
+                    <div class="card-title">Behandlung suchen</div>
+                    
+                    <!-- Search Form -->
+                    <div class="search-form">
+                        <div class="form-group">
+                            <label for="searchInput">Suchbegriff:</label>
+                            <input type="text" id="searchInput" placeholder="Sau-Nummer, Diagnose, Medikament...">
+                        </div>
+                        
+                        <!-- Advanced Filters -->
+                        <div class="advanced-filters">
+                            <h4>Erweiterte Filter:</h4>
+                            
+                            <div class="filter-group">
+                                <label>Datumsbereich:</label>
+                                <div class="date-range">
+                                    <input type="date" id="filter-date-start" placeholder="Von">
+                                    <input type="date" id="filter-date-end" placeholder="Bis">
+                                </div>
+                            </div>
+                            
+                            <div class="filter-group">
+                                <label>Status:</label>
+                                <div class="checkbox-group">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" value="In Behandlung" class="filter-status">
+                                        In Behandlung
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" value="Abgeschlossen" class="filter-status">
+                                        Abgeschlossen
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" value="Nachbehandlung nötig" class="filter-status">
+                                        Nachbehandlung nötig
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" value="Genesen" class="filter-status">
+                                        Genesen
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="filter-group">
+                                <label>Tiertyp:</label>
+                                <div class="checkbox-group">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" value="Altsau" class="filter-tiertyp">
+                                        Altsau
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" value="Jungsau" class="filter-tiertyp">
+                                        Jungsau
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" value="Ferkel" class="filter-tiertyp">
+                                        Ferkel
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button class="btn btn-primary" id="search-button">Suchen</button>
+                        <button class="btn btn-secondary" id="reset-filters">Filter zurücksetzen</button>
+                    </div>
+                </div>
+                
+                <!-- Search Results -->
+                <div id="search-results" class="treatment-list">
+                    <!-- Search results will be displayed here -->
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <!-- Floating Action Button -->
+    <button class="fab" id="fab" title="Neue Behandlung">
+        <span class="fab-icon">+</span>
+    </button>
+    
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+        <button class="nav-item active" data-tab="tab-form">
+            <span class="nav-icon">📝</span>
+            <span class="nav-label">Neu</span>
+        </button>
+        <button class="nav-item" data-tab="tab-list">
+            <span class="nav-icon">📋</span>
+            <span class="nav-label">Liste</span>
+        </button>
+        <button class="nav-item" data-tab="tab-search">
+            <span class="nav-icon">🔍</span>
+            <span class="nav-label">Suche</span>
+        </button>
+    </nav>
+    
+    <!-- Update Banner -->
+    <div class="update-banner" id="update-banner">
+        <div>Neue Version verfügbar!</div>
+        <button class="btn btn-success" id="update-app">Aktualisieren</button>
+    </div>
+    
+    <!-- Pull to Refresh -->
+    <div class="pull-to-refresh" id="pull-to-refresh">
+        <span class="ptr-icon">↻</span>
+    </div>
+    
+    <!-- Scripts -->
+    <script src="app.js" type="module"></script>
+</body>
+</html>
