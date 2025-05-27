@@ -456,6 +456,39 @@
                 document.getElementById('debug-link').style.display = 'none';
             }, 5000); // Nach 5 Sekunden wieder verstecken
             tapCount = 0;
+        } else if (tapCount === 5) {
+            // 5x Tippen = Pull-to-Refresh umschalten (Geheimfunktion)
+            const currentState = localStorage.getItem('pullToRefreshEnabled') !== 'false';
+            const newState = !currentState;
+            localStorage.setItem('pullToRefreshEnabled', newState.toString());
+            
+            const message = newState ? 
+                '🔄 Pull-to-Refresh aktiviert' : 
+                '❌ Pull-to-Refresh deaktiviert';
+            
+            // Temporäre Benachrichtigung
+            const notification = document.createElement('div');
+            notification.textContent = message;
+            notification.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: rgba(0,0,0,0.8);
+                color: white;
+                padding: 16px 24px;
+                border-radius: 12px;
+                z-index: 10000;
+                font-weight: 500;
+            `;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+                window.location.reload();
+            }, 2000);
+            
+            tapCount = 0;
         }
         
         // Reset nach 2 Sekunden

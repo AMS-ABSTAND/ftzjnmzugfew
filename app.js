@@ -159,6 +159,15 @@ document.addEventListener('DOMContentLoaded', async function() {
         // Set up event listeners
         setupEventListeners();
         
+        // Initialize pull-to-refresh (mit Einstellungen)
+        const pullToRefreshEnabled = localStorage.getItem('pullToRefreshEnabled') !== 'false';
+        if (pullToRefreshEnabled) {
+            setupPullToRefresh();
+            console.log('🔄 Pull-to-Refresh aktiviert (3x FAB oder Debug-Button zum Deaktivieren)');
+        } else {
+            console.log('❌ Pull-to-Refresh deaktiviert (Debug-Button zum Aktivieren)');
+        }
+        
         // Set today's date
         document.getElementById('treatmentDate').value = new Date().toISOString().split('T')[0];
         
@@ -911,6 +920,7 @@ function showDebugModal() {
                     <h4>Aktionen</h4>
                     <button class="btn btn-secondary" onclick="clearAllCaches()">Caches löschen</button>
                     <button class="btn btn-secondary" onclick="updateServiceWorker()">SW aktualisieren</button>
+                    <button class="btn btn-secondary" onclick="togglePullToRefresh()">Pull-to-Refresh umschalten</button>
                 </div>
             </div>
         </div>
@@ -1037,6 +1047,13 @@ async function loadDebugInfo() {
         cacheDiv.innerHTML = `❌ Cache Fehler: ${error.message}`;
         cacheDiv.style.color = 'var(--danger-color)';
     }
+    
+    // Pull-to-Refresh Status hinzufügen
+    const pullToRefreshEnabled = localStorage.getItem('pullToRefreshEnabled') !== 'false';
+    const statusText = pullToRefreshEnabled ? '✅ Pull-to-Refresh aktiv' : '❌ Pull-to-Refresh deaktiviert';
+    const statusColor = pullToRefreshEnabled ? 'var(--success-color)' : 'var(--warning-color)';
+    
+    cacheDiv.innerHTML += `<br><span style="color: ${statusColor}">${statusText}</span>`;
 }
 
 window.clearAllCaches = async function() {
@@ -1063,6 +1080,22 @@ window.updateServiceWorker = async function() {
         }
     } catch (error) {
         showNotification('Update Fehler: ' + error.message, 'error');
+    }
+};
+
+window.togglePullToRefresh = function() {
+    const currentState = localStorage.getItem('pullToRefreshEnabled') !== 'false';
+    const newState = !currentState;
+    
+    localStorage.setItem('pullToRefreshEnabled', newState.toString());
+    
+    if (newState) {
+        setupPullToRefresh();
+        showNotification('Pull-to-Refresh aktiviert', 'success');
+    } else {
+        // Remove event listeners by reloading (simplest approach)
+        showNotification('Pull-to-Refresh deaktiviert. Seite wird neu geladen...', 'info');
+        setTimeout(() => window.location.reload(), 1500);
     }
 };
 
@@ -1103,15 +1136,29 @@ window.debugServiceWorker = async function() {
 console.log('🐷 Sauen App geladen!');
 console.log('Debug: Tippen Sie debugServiceWorker() in die Konsole für Cache-Info');
 
-// ===== Pull to Refresh =====
+// ===== Pull to Refresh - Verbesserte Version =====
 function setupPullToRefresh() {
     let startY = 0;
     let isPulling = false;
+    let pullStartTime = 0;
+    let lastScrollY = 0;
     const pullElement = document.getElementById('pull-to-refresh');
     
+    // Konfiguration - weniger aggressiv
+    const config = {
+        minDistance: 80,        // Mindestablstand (war 50)
+        triggerDistance: 140,   // Auslöseabstand (war 100)
+        minDuration: 300,       // Mindestdauer der Geste in ms
+        scrollTolerance: 5,     // Toleranz für "scroll position 0"
+        velocityThreshold: 0.3  // Mindestgeschwindigkeit
+    };
+    
     document.addEventListener('touchstart', (e) => {
-        if (window.scrollY === 0) {
+        // Nur bei wirklich oberster Position
+        if (window.scrollY <= config.scrollTolerance) {
             startY = e.touches[0].clientY;
+            pullStartTime = Date.now();
+            lastScrollY = window.scrollY;
             isPulling = true;
         }
     });
@@ -1119,21 +1166,69 @@ function setupPullToRefresh() {
     document.addEventListener('touchmove', (e) => {
         if (!isPulling) return;
         
-        const y = e.touches[0].clientY;
-        const diff = y - startY;
+        // Abbrechen wenn gescrollt wurde
+        if (window.scrollY > config.scrollTolerance) {
+            isPulling = false;
+            pullElement.classList.remove('visible', 'refreshing');
+            return;
+        }
         
-        if (diff > 50 && window.scrollY === 0) {
+        const currentY = e.touches[0].clientY;
+        const diff = currentY - startY;
+        const duration = Date.now() - pullStartTime;
+        
+        // Nur bei ausreichendem Abstand und Dauer
+        if (diff > config.minDistance && duration > config.minDuration && window.scrollY <= config.scrollTolerance) {
             pullElement.classList.add('visible');
-            if (diff > 100) {
+            
+            // Refresh nur bei deutlicher Geste
+            if (diff > config.triggerDistance) {
                 pullElement.classList.add('refreshing');
+                // Verhindere weitere Touch-Events während Refresh
+                e.preventDefault();
             }
+        } else {
+            pullElement.classList.remove('visible', 'refreshing');
         }
     });
     
-    document.addEventListener('touchend', () => {
-        if (pullElement.classList.contains('refreshing')) {
-            window.location.reload();
+    document.addEventListener('touchend', (e) => {
+        if (!isPulling) return;
+        
+        const duration = Date.now() - pullStartTime;
+        const finalY = e.changedTouches[0].clientY;
+        const totalDistance = finalY - startY;
+        const velocity = totalDistance / duration;
+        
+        // Refresh nur bei klarer Absicht
+        if (pullElement.classList.contains('refreshing') && 
+            duration > config.minDuration && 
+            velocity > config.velocityThreshold &&
+            window.scrollY <= config.scrollTolerance) {
+            
+            // Sanfte Verzögerung vor Reload
+            setTimeout(() => {
+                window.location.reload();
+            }, 200);
         }
+        
+        // Cleanup
+        pullElement.classList.remove('visible', 'refreshing');
+        isPulling = false;
+        startY = 0;
+        pullStartTime = 0;
+    });
+    
+    // Zusätzlich: Abbrechen bei Scroll-Events
+    document.addEventListener('scroll', () => {
+        if (isPulling && window.scrollY > config.scrollTolerance) {
+            pullElement.classList.remove('visible', 'refreshing');
+            isPulling = false;
+        }
+    });
+    
+    // Touch-Cancel Event für Robustheit
+    document.addEventListener('touchcancel', () => {
         pullElement.classList.remove('visible', 'refreshing');
         isPulling = false;
     });

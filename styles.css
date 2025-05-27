@@ -1121,14 +1121,14 @@ textarea {
     padding: var(--spacing-sm) var(--spacing-xl);
 }
 
-/* ===== Pull to Refresh ===== */
+/* ===== Pull to Refresh - Weniger aufdringlich ===== */
 .pull-to-refresh {
     position: fixed;
-    top: -80px;
+    top: -70px;
     left: 50%;
     transform: translateX(-50%);
-    width: 50px;
-    height: 50px;
+    width: 44px;
+    height: 44px;
     background: var(--glass-bg);
     backdrop-filter: var(--glass-backdrop);
     border: 1px solid var(--glass-border);
@@ -1137,23 +1137,48 @@ textarea {
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: top var(--transition-normal);
+    transition: all var(--transition-normal);
     z-index: calc(var(--z-header) - 1);
-    font-size: var(--font-size-lg);
+    font-size: var(--font-size-md);
     color: var(--primary-color);
+    opacity: 0.8;
+    pointer-events: none;
 }
 
 .pull-to-refresh.visible {
-    top: var(--spacing-lg);
+    top: var(--spacing-md);
+    opacity: 1;
+    transform: translateX(-50%) scale(1.1);
 }
 
 .pull-to-refresh.refreshing {
     animation: spin 1s linear infinite;
+    background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+    color: white;
+    transform: translateX(-50%) scale(1.2);
+}
+
+.pull-to-refresh.refreshing::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(45deg, var(--primary-color), var(--accent-color), var(--primary-color));
+    border-radius: 50%;
+    z-index: -1;
+    animation: rotate 2s linear infinite;
 }
 
 @keyframes spin {
-    from { transform: translateX(-50%) rotate(0deg); }
-    to { transform: translateX(-50%) rotate(360deg); }
+    from { transform: translateX(-50%) rotate(0deg) scale(1.2); }
+    to { transform: translateX(-50%) rotate(360deg) scale(1.2); }
+}
+
+@keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
 /* ===== Notifications ===== */
