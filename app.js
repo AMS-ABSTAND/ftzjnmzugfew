@@ -129,9 +129,13 @@ document.addEventListener('DOMContentLoaded', async function() {
         dataExporter = new DataExporter();
         syncManager = new SyncManager();
         
-        // Initialize service worker
+        // Initialize service worker (graceful fallback if it fails)
         const swManager = new ServiceWorkerManager();
-        await swManager.register();
+        try {
+            await swManager.register();
+        } catch (error) {
+            console.log('Service Worker initialization failed, but app continues normally:', error);
+        }
         
         // Set up event listeners
         setupEventListeners();

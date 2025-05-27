@@ -1,169 +1,126 @@
-// ===== Module: serviceWorker.js - Alternative ohne externe Datei =====
+// ===== Module: serviceWorker.js - Robuste Lösung =====
 export class ServiceWorkerManager {
     constructor() {
         this.registration = null;
+        this.isEnabled = false;
     }
 
     async register() {
-        if ('serviceWorker' in navigator) {
-            try {
-                // Erstelle Service Worker Code als Data URL statt Blob URL
-                const swCode = this.getServiceWorkerCode();
-                
-                // Versuche zuerst die externe sw.js zu laden
-                try {
-                    this.registration = await navigator.serviceWorker.register('/sw.js');
-                    console.log('Service Worker registered successfully from /sw.js');
-                } catch (error) {
-                    console.log('External sw.js not found, using inline service worker');
-                    
-                    // Fallback: Verwende Data URL
-                    const dataUrl = `data:application/javascript;base64,${btoa(swCode)}`;
-                    this.registration = await navigator.serviceWorker.register(dataUrl);
-                    console.log('Service Worker registered successfully from data URL');
-                }
+        if (!('serviceWorker' in navigator)) {
+            console.log('Service Worker wird von diesem Browser nicht unterstützt');
+            return this.disableServiceWorker();
+        }
 
-                this.registration.addEventListener('updatefound', () => {
-                    const newWorker = this.registration.installing;
-                    newWorker.addEventListener('statechange', () => {
-                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                            this.showUpdateBanner();
-                        }
-                    });
+        try {
+            // Versuche externe sw.js zu laden
+            console.log('Versuche Service Worker von /sw.js zu registrieren...');
+            this.registration = await navigator.serviceWorker.register('/sw.js');
+            console.log('✅ Service Worker erfolgreich registriert von /sw.js');
+            this.isEnabled = true;
+            this.setupUpdateListener();
+            return;
+        } catch (error) {
+            console.log('❌ /sw.js nicht gefunden:', error.message);
+        }
+
+        // Fallback: Versuche mit relativer URL
+        try {
+            console.log('Versuche Service Worker von ./sw.js zu registrieren...');
+            this.registration = await navigator.serviceWorker.register('./sw.js');
+            console.log('✅ Service Worker erfolgreich registriert von ./sw.js');
+            this.isEnabled = true;
+            this.setupUpdateListener();
+            return;
+        } catch (error) {
+            console.log('❌ ./sw.js nicht gefunden:', error.message);
+        }
+
+        // Alle Versuche fehlgeschlagen - Service Worker deaktivieren
+        console.log('🔄 Service Worker deaktiviert - App läuft trotzdem normal');
+        return this.disableServiceWorker();
+    }
+
+    setupUpdateListener() {
+        if (!this.registration) return;
+
+        this.registration.addEventListener('updatefound', () => {
+            const newWorker = this.registration.installing;
+            if (newWorker) {
+                newWorker.addEventListener('statechange', () => {
+                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                        this.showUpdateBanner();
+                    }
                 });
-
-                // Check for updates every minute
-                setInterval(() => {
-                    this.registration.update();
-                }, 60000);
-            } catch (error) {
-                console.error('Service Worker registration failed:', error);
-                // Deaktiviere Service Worker funktionen, aber lass die App weiterlaufen
-                console.log('App continues without service worker');
             }
+        });
+
+        // Prüfe alle 5 Minuten auf Updates (nicht jede Minute um Performance zu schonen)
+        setInterval(() => {
+            if (this.registration) {
+                this.registration.update().catch(err => {
+                    console.log('Update check failed:', err);
+                });
+            }
+        }, 5 * 60 * 1000);
+    }
+
+    disableServiceWorker() {
+        this.isEnabled = false;
+        this.registration = null;
+        
+        // Verstecke alle Service Worker bezogenen UI Elemente
+        this.hideServiceWorkerFeatures();
+        
+        // Simuliere erfolgreiche Registrierung für den Rest der App
+        return Promise.resolve();
+    }
+
+    hideServiceWorkerFeatures() {
+        // Verstecke Update Banner wenn vorhanden
+        const updateBanner = document.getElementById('update-banner');
+        if (updateBanner) {
+            updateBanner.style.display = 'none';
+        }
+
+        // Verstecke Sync Button oder ändere sein Verhalten
+        const syncButton = document.getElementById('sync-button');
+        if (syncButton) {
+            syncButton.title = 'Synchronisieren (Online only)';
         }
     }
 
     showUpdateBanner() {
+        if (!this.isEnabled) return;
+        
         const banner = document.getElementById('update-banner');
         if (banner) {
             banner.style.display = 'block';
         }
     }
 
-    getServiceWorkerCode() {
-        return `
-const CACHE_NAME = 'sauen-app-v2';
-const urlsToCache = [
-    '/',
-    '/index.html',
-    '/styles.css',
-    '/app.js',
-    '/manifest.json'
-];
-
-self.addEventListener('install', event => {
-    event.waitUntil(
-        caches.open(CACHE_NAME)
-            .then(cache => {
-                return cache.addAll(urlsToCache).catch(err => {
-                    console.log('Some resources failed to cache:', err);
-                    // Cache what we can
-                    return Promise.all(
-                        urlsToCache.map(url => {
-                            return cache.add(url).catch(err => {
-                                console.log('Failed to cache:', url, err);
-                            });
-                        })
-                    );
-                });
-            })
-            .then(() => self.skipWaiting())
-    );
-});
-
-self.addEventListener('activate', event => {
-    event.waitUntil(
-        caches.keys().then(cacheNames => {
-            return Promise.all(
-                cacheNames.map(cacheName => {
-                    if (cacheName !== CACHE_NAME) {
-                        return caches.delete(cacheName);
-                    }
-                })
-            );
-        }).then(() => self.clients.claim())
-    );
-});
-
-self.addEventListener('fetch', event => {
-    // Nur für same-origin requests cachen
-    if (event.request.url.startsWith(self.location.origin)) {
-        event.respondWith(
-            caches.match(event.request)
-                .then(response => {
-                    if (response) return response;
-                    
-                    return fetch(event.request).then(networkResponse => {
-                        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-                            return networkResponse;
-                        }
-                        
-                        const responseToCache = networkResponse.clone();
-                        caches.open(CACHE_NAME)
-                            .then(cache => cache.put(event.request, responseToCache))
-                            .catch(err => console.log('Failed to cache response:', err));
-                        
-                        return networkResponse;
-                    });
-                })
-                .catch(() => {
-                    // Fallback für offline
-                    if (event.request.mode === 'navigate') {
-                        return caches.match('/index.html');
-                    }
-                    return new Response('Offline - Keine Internetverbindung', {
-                        status: 503,
-                        statusText: 'Service Unavailable',
-                        headers: { 'Content-Type': 'text/plain' }
-                    });
-                })
-        );
+    // Hilfsmethode um zu prüfen ob Service Worker aktiv ist
+    isServiceWorkerEnabled() {
+        return this.isEnabled;
     }
-});
 
-self.addEventListener('sync', event => {
-    if (event.tag === 'sync-treatments') {
-        event.waitUntil(syncTreatments());
-    }
-});
+    // Hilfsmethode für andere Module
+    async requestSync(tag = 'sync-treatments') {
+        if (!this.isEnabled || !this.registration) {
+            console.log('Service Worker nicht verfügbar - Sync wird übersprungen');
+            return false;
+        }
 
-async function syncTreatments() {
-    try {
-        console.log('Background sync triggered');
-        // Hier würde normalerweise die Synchronisation stattfinden
-    } catch (error) {
-        console.error('Sync failed:', error);
-    }
-}
-
-self.addEventListener('push', event => {
-    const options = {
-        body: event.data ? event.data.text() : 'Neue Benachrichtigung',
-        icon: '/icon-192.png',
-        vibrate: [200, 100, 200]
-    };
-    event.waitUntil(
-        self.registration.showNotification('Sauen Behandlung', options)
-    );
-});
-
-self.addEventListener('notificationclick', event => {
-    event.notification.close();
-    event.waitUntil(
-        clients.openWindow('/')
-    );
-});
-        `;
+        try {
+            if ('sync' in window.ServiceWorkerRegistration.prototype) {
+                await this.registration.sync.register(tag);
+                return true;
+            } else {
+                console.log('Background Sync nicht unterstützt');
+                return false;
+            }
+        } catch (error) {
+            console.log('Background Sync Registrierung fehlgeschlagen:', error);
+            return false;
+        }
     }
 }
