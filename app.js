@@ -488,6 +488,8 @@ async function loadTreatments() {
     }
 }
 
+// Ersetzen Sie die createTreatmentElement Funktion in app.js mit dieser verbesserten Version:
+
 function createTreatmentElement(treatment) {
     const item = document.createElement('div');
     item.className = 'treatment-item';
@@ -526,7 +528,7 @@ function createTreatmentElement(treatment) {
         const daysRemaining = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
         
         if (daysRemaining > 0) {
-            waitingInfo = `<div style="color: var(--danger-color); font-size: var(--font-size-xs); margin-top: var(--spacing-xs);">⚠️ Wartezeit: noch ${daysRemaining} Tag(e)</div>`;
+            waitingInfo = `<div class="waiting-warning">⚠️ Wartezeit: noch ${daysRemaining} Tag(e)</div>`;
         }
     }
     
@@ -537,56 +539,99 @@ function createTreatmentElement(treatment) {
         const treatmentClass = isLatest ? 'current-treatment' : 'previous-treatment';
         
         treatmentsDisplay += `
-            <div class="${treatmentClass}" style="margin-bottom: var(--spacing-sm); ${!isLatest ? 'opacity: 0.7; font-size: var(--font-size-sm);' : ''}">
-                <div style="color: var(--gray-500); font-size: var(--font-size-xs);">
+            <div class="${treatmentClass}">
+                <div class="treatment-date">
                     ${index === 0 ? 'Erstbehandlung' : `Nachbehandlung ${index}`} - ${new Date(t.date).toLocaleDateString('de-DE')}
                 </div>
-                <div><strong>Diagnose:</strong> ${t.diagnosis}</div>
-                <div><strong>Behandlung:</strong> ${t.medication} ${t.dosage ? `(${t.dosage})` : ''}</div>
-                ${t.person ? `<div><strong>Behandler:</strong> ${t.person}</div>` : ''}
-                ${t.notes ? `<div><strong>Notizen:</strong> ${t.notes}</div>` : ''}
+                <div class="diagnosis">${t.diagnosis}</div>
+                <div class="medication"><strong>Behandlung:</strong> ${t.medication} ${t.dosage ? `(${t.dosage})` : ''}</div>
+                ${createAdditionalInfo(t)}
             </div>
         `;
     });
     
+    // Summary text for multiple treatments
+    const summaryText = treatments.length > 1 
+        ? `Mehrfachbehandlung • ${treatments.length} Behandlungen`
+        : `Einzelbehandlung • ${new Date(latestTreatment.date).toLocaleDateString('de-DE')}`;
+    
     item.innerHTML = `
         <div class="treatment-header">
-            <span class="sau-number">${treatment.sauNumber}</span>
-            <span class="status-badge ${statusClass}">${treatment.status}</span>
-        </div>
-        <div class="treatment-summary">
-            <strong>${treatment.tiertyp}</strong> - ${treatments.length} Behandlung${treatments.length > 1 ? 'en' : ''}
-        </div>
-        <div class="treatment-details">
-            ${treatmentsDisplay}
-        </div>
-        ${waitingInfo}
-        
-        <div class="action-buttons">
-            <button class="action-btn edit-btn" onclick="editTreatment(${treatment.id})">Bearbeiten</button>
-            ${treatment.status !== 'Abgeschlossen' && treatment.status !== 'Genesen' ? 
-                `<button class="action-btn follow-up-btn" onclick="createFollowUp(${treatment.id})">Nachbehandlung</button>` : ''}
-            ${treatment.status === 'In Behandlung' ? 
-                `<button class="action-btn complete-btn" onclick="changeStatus(${treatment.id}, 'Abgeschlossen')">Abschließen</button>` : ''}
+            <div class="treatment-header-left">
+                <div class="pig-icon">🐷</div>
+                <div class="treatment-title">
+                    <div class="sau-number">${treatment.sauNumber}</div>
+                    <div class="tiertyp-info">${treatment.tiertyp} - ${treatments.length} Behandlung${treatments.length > 1 ? 'en' : ''}</div>
+                </div>
+            </div>
+            <div class="status-badge ${statusClass}">${treatment.status}</div>
         </div>
         
-        ${treatment.history && treatment.history.length > 1 ? createHistoryHTML(treatment.history) : ''}
+        <div class="treatment-content">
+            <div class="treatment-summary">${summaryText}</div>
+            
+            <div class="treatment-details">
+                ${treatmentsDisplay}
+            </div>
+            
+            ${waitingInfo}
+            
+            <div class="action-buttons">
+                <button class="action-btn edit-btn" onclick="editTreatment(${treatment.id})">Bearbeiten</button>
+                ${treatment.status !== 'Abgeschlossen' && treatment.status !== 'Genesen' ? 
+                    `<button class="action-btn follow-up-btn" onclick="createFollowUp(${treatment.id})">Nachbehandlung</button>` : ''}
+                ${treatment.status === 'In Behandlung' ? 
+                    `<button class="action-btn complete-btn" onclick="changeStatus(${treatment.id}, 'Abgeschlossen')">Abschließen</button>` : ''}
+            </div>
+            
+            ${treatment.history && treatment.history.length > 1 ? createHistoryHTML(treatment.history) : ''}
+        </div>
     `;
     
     return item;
 }
 
+// Neue Hilfsfunktion für zusätzliche Informationen
+function createAdditionalInfo(treatment) {
+    const items = [];
+    
+    if (treatment.person) {
+        items.push(`<div class="info-item"><div class="info-label">Behandler</div><div class="info-value">${treatment.person}</div></div>`);
+    }
+    
+    if (treatment.duration) {
+        items.push(`<div class="info-item"><div class="info-label">Dauer</div><div class="info-value">${treatment.duration} Tage</div></div>`);
+    }
+    
+    if (treatment.administrationMethod) {
+        items.push(`<div class="info-item"><div class="info-label">Verabreichung</div><div class="info-value">${treatment.administrationMethod}</div></div>`);
+    }
+    
+    if (treatment.notes) {
+        items.push(`<div class="info-item"><div class="info-label">Notizen</div><div class="info-value">${treatment.notes}</div></div>`);
+    }
+    
+    if (items.length > 0) {
+        return `<div class="additional-info">${items.join('')}</div>`;
+    }
+    
+    return '';
+}
+
+// Verbesserte History HTML-Funktion
 function createHistoryHTML(history) {
-    let html = '<div class="history-card"><div class="history-title">Verlauf:</div>';
+    let html = '<div class="history-card"><div class="history-title">Verlauf</div><div class="history-timeline">';
     
     history.slice(-3).reverse().forEach(entry => {
         const date = new Date(entry.date).toLocaleString('de-DE');
         html += `<div class="history-item">${date}: ${entry.action}</div>`;
     });
     
-    html += '</div>';
+    html += '</div></div>';
     return html;
 }
+
+
 
 // ===== Edit Treatment =====
 window.editTreatment = async function(id) {
