@@ -675,43 +675,42 @@ textarea {
     margin-bottom: 0;
 }
 
-/* ===== Treatment List - Verbessertes Scrolling ===== */
+/* ===== Treatment List - Vereinfachtes Scrolling ===== */
 .treatment-list-container {
-    position: relative;
-    height: calc(100vh - 420px); /* Dynamische Höhe basierend auf Viewport */
-    min-height: 400px; /* Minimum-Höhe sicherstellen */
-    max-height: 80vh; /* Maximum für sehr große Bildschirme */
+    /* Einfache, funktionierende Scroll-Lösung */
+    max-height: 70vh;
+    min-height: 300px;
     overflow-y: auto;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
+    
+    /* Styling */
     border-radius: var(--border-radius-lg);
     background: rgba(255, 255, 255, 0.05);
     backdrop-filter: blur(10px);
     border: 1px solid rgba(255, 255, 255, 0.1);
     padding: var(--spacing-sm);
     
-    /* Verhindere Pull-to-Refresh Interferenz */
-    overscroll-behavior: contain;
-    overscroll-behavior-y: contain;
-    
-    /* Bessere Scroll-Performance */
-    will-change: scroll-position;
-    transform: translateZ(0); /* Hardware-Beschleunigung */
+    /* Wichtig: Keine problematischen CSS-Eigenschaften */
+    position: static; /* statt relative */
+    /* overscroll-behavior entfernt - verursacht Probleme */
+    /* transform entfernt - blockiert manchmal Scrolling */
+    /* will-change entfernt - kann Performance-Probleme verursachen */
 }
 
-/* Scroll-Indikator für bessere UX */
+/* Einfacher Scrollbar-Style */
 .treatment-list-container::-webkit-scrollbar {
-    width: 4px;
+    width: 6px;
 }
 
 .treatment-list-container::-webkit-scrollbar-track {
     background: rgba(255, 255, 255, 0.1);
-    border-radius: 2px;
+    border-radius: 3px;
 }
 
 .treatment-list-container::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.3);
-    border-radius: 2px;
+    border-radius: 3px;
 }
 
 .treatment-list-container::-webkit-scrollbar-thumb:hover {
@@ -719,30 +718,24 @@ textarea {
 }
 
 .treatment-list {
+    /* Einfache Liste ohne Virtual Scrolling Probleme */
     position: relative;
-    min-height: 100%;
-    padding-bottom: var(--spacing-xl); /* Extra Padding am Ende */
+    padding-bottom: var(--spacing-xl);
+    /* Keine min-height - lässt natürliches Verhalten zu */
 }
 
-/* Responsive Höhenanpassungen */
-@media (max-height: 600px) {
+/* Mobile-optimierte Höhen */
+@media (max-width: 768px) {
     .treatment-list-container {
-        height: calc(100vh - 350px);
+        max-height: 60vh;
         min-height: 250px;
     }
 }
 
-@media (max-height: 500px) {
+@media (max-width: 480px) {
     .treatment-list-container {
-        height: calc(100vh - 300px);
+        max-height: 50vh;
         min-height: 200px;
-    }
-}
-
-@media (min-height: 800px) {
-    .treatment-list-container {
-        height: calc(100vh - 480px);
-        max-height: 600px;
     }
 }
 

@@ -10,7 +10,7 @@ import { ServiceWorkerManager } from './modules/serviceWorker.js';
 
 // ===== Global Variables =====
 let db;
-let virtualScroller;
+// let virtualScroller; // Entfernt - normales Rendering verwenden
 let advancedSearch;
 let dataExporter;
 let syncManager;
@@ -118,19 +118,19 @@ document.addEventListener('DOMContentLoaded', async function() {
         db = new DatabaseManager();
         await db.init();
         
-        // Initialize modules
-        virtualScroller = new VirtualScroller(
-            document.getElementById('treatment-list'),
-            100, // Erhöhte Item-Höhe für besseres Scrolling
-            (item) => createTreatmentElement(item)
-        );
+        // Initialize modules - Vereinfacht ohne Virtual Scroller
+        // virtualScroller = new VirtualScroller(
+        //     document.getElementById('treatment-list'),
+        //     100, // Erhöhte Item-Höhe für besseres Scrolling
+        //     (item) => createTreatmentElement(item)
+        // );
         
         advancedSearch = new AdvancedSearch();
         dataExporter = new DataExporter();
         syncManager = new SyncManager();
         
         // Enhance virtual scroller for better mobile experience
-        enhanceVirtualScroller();
+        // enhanceVirtualScroller(); // Entfernt - verursachte Scroll-Probleme
         
         // Initialize service worker (graceful fallback if it fails)
         const swManager = new ServiceWorkerManager();
@@ -443,7 +443,7 @@ function showTab(tabId) {
     }
 }
 
-// ===== Treatment Management =====
+// ===== Treatment Management - Vereinfachtes Rendering =====
 async function loadTreatments() {
     try {
         const treatments = await db.getAllTreatments();
@@ -454,11 +454,37 @@ async function loadTreatments() {
         // Sort by last modified date (newest first)
         treatments.sort((a, b) => new Date(b.lastModified) - new Date(a.lastModified));
         
-        // Update virtual scroller
-        virtualScroller.setItems(treatments);
+        // Direct rendering instead of virtual scroller
+        const listContainer = document.getElementById('treatment-list');
+        listContainer.innerHTML = ''; // Clear existing content
+        
+        if (treatments.length === 0) {
+            listContainer.innerHTML = `
+                <div style="text-align: center; padding: var(--spacing-xl); color: var(--gray-500);">
+                    <h3>🐷 Keine Behandlungen vorhanden</h3>
+                    <p>Klicken Sie auf + um eine neue Behandlung zu erfassen.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // Render all treatments directly
+        treatments.forEach(treatment => {
+            const element = createTreatmentElement(treatment);
+            listContainer.appendChild(element);
+        });
+        
+        console.log(`✅ ${treatments.length} Behandlungen geladen`);
         
     } catch (error) {
         console.error('Error loading treatments:', error);
+        const listContainer = document.getElementById('treatment-list');
+        listContainer.innerHTML = `
+            <div style="text-align: center; padding: var(--spacing-xl); color: var(--danger-color);">
+                <h3>❌ Fehler beim Laden</h3>
+                <p>Bitte versuchen Sie es erneut.</p>
+            </div>
+        `;
     }
 }
 
@@ -1206,14 +1232,9 @@ function setupPullToRefresh() {
     
     function isAtTop() {
         const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-        const listContainer = document.getElementById('treatment-list-container');
         
-        // Prüfe sowohl Window-Scroll als auch Listen-Scroll
-        const isWindowAtTop = scrollTop <= config.scrollTolerance;
-        const isListAtTop = !listContainer || listContainer.scrollTop <= config.scrollTolerance;
-        const isNotScrollingInList = !listContainer || listContainer.dataset.isScrolling !== 'true';
-        
-        return isWindowAtTop && isListAtTop && isNotScrollingInList;
+        // Einfache Prüfung - nur Window-Scroll
+        return scrollTop <= config.scrollTolerance;
     }
     
     function detectScrollIntent(currentY) {
