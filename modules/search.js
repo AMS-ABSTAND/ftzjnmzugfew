@@ -1,4 +1,4 @@
-// ===== Module: search.js =====
+// ===== Module: search.js - Updated for multiple treatments =====
 export class AdvancedSearch {
     constructor() {
         this.filters = {
@@ -11,15 +11,11 @@ export class AdvancedSearch {
     
     search(treatments, query) {
         return treatments.filter(treatment => {
-            // Text search
-            const matchesText = !query || 
-                treatment.sauNumber.toLowerCase().includes(query.toLowerCase()) ||
-                treatment.diagnosis.toLowerCase().includes(query.toLowerCase()) ||
-                treatment.medication.toLowerCase().includes(query.toLowerCase()) ||
-                (treatment.notes && treatment.notes.toLowerCase().includes(query.toLowerCase()));
+            // Text search - now searches through all treatments in the record
+            const matchesText = !query || this.searchInTreatment(treatment, query);
             
-            // Date filter
-            const matchesDate = this.checkDateRange(treatment.treatmentDate);
+            // Date filter - checks all treatment dates
+            const matchesDate = this.checkDateRange(treatment);
             
             // Status filter
             const matchesStatus = this.filters.status.length === 0 || 
@@ -33,14 +29,46 @@ export class AdvancedSearch {
         });
     }
     
-    checkDateRange(date) {
-        const treatmentDate = new Date(date);
+    searchInTreatment(treatment, query) {
+        const lowerQuery = query.toLowerCase();
+        
+        // Search in main treatment data
+        if (treatment.sauNumber.toLowerCase().includes(lowerQuery)) return true;
+        
+        // Search in all treatments within this record
+        const treatments = treatment.treatments || [{
+            diagnosis: treatment.diagnosis,
+            medication: treatment.medication,
+            notes: treatment.notes,
+            person: treatment.person
+        }];
+        
+        return treatments.some(t => {
+            return (t.diagnosis && t.diagnosis.toLowerCase().includes(lowerQuery)) ||
+                   (t.medication && t.medication.toLowerCase().includes(lowerQuery)) ||
+                   (t.notes && t.notes.toLowerCase().includes(lowerQuery)) ||
+                   (t.person && t.person.toLowerCase().includes(lowerQuery));
+        });
+    }
+    
+    checkDateRange(treatment) {
         const start = this.filters.dateRange.start ? new Date(this.filters.dateRange.start) : null;
         const end = this.filters.dateRange.end ? new Date(this.filters.dateRange.end) : null;
         
-        if (start && treatmentDate < start) return false;
-        if (end && treatmentDate > end) return false;
-        return true;
+        // Get all treatment dates
+        const treatments = treatment.treatments || [{
+            date: treatment.treatmentDate || treatment.date
+        }];
+        
+        // Check if any treatment date falls within the range
+        return treatments.some(t => {
+            if (!t.date) return false;
+            
+            const treatmentDate = new Date(t.date);
+            if (start && treatmentDate < start) return false;
+            if (end && treatmentDate > end) return false;
+            return true;
+        });
     }
     
     resetFilters() {

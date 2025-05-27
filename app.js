@@ -16,6 +16,8 @@ let dataExporter;
 let syncManager;
 let isEditMode = false;
 let editingId = null;
+let isFollowUpMode = false;
+let followUpParentId = null;
 
 // ===== Template Definitions =====
 const TEMPLATES = {
@@ -220,11 +222,8 @@ function setupEventListeners() {
 async function handleFormSubmit(e) {
     e.preventDefault();
     
-    const treatment = {
-        id: isEditMode ? editingId : Date.now(),
-        tiertyp: document.getElementById('tiertyp').value,
-        sauNumber: document.getElementById('sauNumber').value,
-        treatmentDate: document.getElementById('treatmentDate').value,
+    const newTreatmentData = {
+        date: document.getElementById('treatmentDate').value,
         diagnosis: document.getElementById('diagnosis').value,
         medication: document.getElementById('medication').value,
         dosage: document.getElementById('dosage').value,
@@ -232,39 +231,64 @@ async function handleFormSubmit(e) {
         person: document.getElementById('person').value,
         duration: document.getElementById('treatment-duration').value,
         waitingPeriod: document.getElementById('waitingPeriod').value,
-        status: document.getElementById('status').value,
-        notes: document.getElementById('notes').value,
-        parentId: document.getElementById('parent-id').value || null,
-        history: [],
-        synced: false,
-        lastModified: new Date().toISOString()
+        notes: document.getElementById('notes').value
     };
     
     try {
-        if (isEditMode) {
+        if (isFollowUpMode && followUpParentId) {
+            // Add follow-up treatment to existing record
+            await addFollowUpTreatment(followUpParentId, newTreatmentData);
+            showNotification('Nachbehandlung hinzugefügt!');
+        } else if (isEditMode) {
             // Update existing treatment
-            const oldTreatment = await db.getTreatmentById(editingId);
-            if (oldTreatment) {
-                treatment.history = oldTreatment.history || [];
+            const treatment = await db.getTreatmentById(editingId);
+            if (treatment) {
+                // Update the main treatment data
+                treatment.tiertyp = document.getElementById('tiertyp').value;
+                treatment.sauNumber = document.getElementById('sauNumber').value;
+                treatment.status = document.getElementById('status').value;
+                treatment.lastModified = new Date().toISOString();
+                treatment.synced = false;
+                
+                // Update the primary treatment in the treatments array
+                if (treatment.treatments && treatment.treatments.length > 0) {
+                    treatment.treatments[0] = { ...treatment.treatments[0], ...newTreatmentData };
+                } else {
+                    // Backwards compatibility
+                    Object.assign(treatment, newTreatmentData);
+                }
+                
+                // Update history
+                treatment.history = treatment.history || [];
                 treatment.history.push({
                     date: new Date().toISOString(),
                     action: 'Behandlung aktualisiert',
-                    oldStatus: oldTreatment.status,
-                    newStatus: treatment.status
+                    status: treatment.status
                 });
+                
+                await db.updateTreatment(treatment);
+                showNotification('Behandlung aktualisiert!');
             }
-            await db.updateTreatment(treatment);
         } else {
-            // Create new treatment
-            treatment.history.push({
-                date: new Date().toISOString(),
-                action: 'Behandlung erstellt',
-                status: treatment.status
-            });
+            // Create new treatment record
+            const treatment = {
+                id: Date.now(),
+                tiertyp: document.getElementById('tiertyp').value,
+                sauNumber: document.getElementById('sauNumber').value,
+                status: document.getElementById('status').value,
+                treatments: [newTreatmentData], // Array of treatments
+                history: [{
+                    date: new Date().toISOString(),
+                    action: 'Behandlung erstellt',
+                    status: document.getElementById('status').value
+                }],
+                synced: false,
+                lastModified: new Date().toISOString()
+            };
+            
             await db.addTreatment(treatment);
+            showNotification('Behandlung gespeichert!');
         }
-        
-        showNotification(isEditMode ? 'Behandlung aktualisiert!' : 'Behandlung gespeichert!');
         
         clearForm();
         showTab('tab-list');
@@ -277,6 +301,47 @@ async function handleFormSubmit(e) {
     } catch (error) {
         console.error('Error saving treatment:', error);
         alert('Fehler beim Speichern der Behandlung.');
+    }
+}
+
+// ===== Follow-up Treatment =====
+async function addFollowUpTreatment(parentId, treatmentData) {
+    const parentTreatment = await db.getTreatmentById(parentId);
+    
+    if (parentTreatment) {
+        // Initialize treatments array if it doesn't exist (backwards compatibility)
+        if (!parentTreatment.treatments) {
+            parentTreatment.treatments = [{
+                date: parentTreatment.treatmentDate || parentTreatment.date,
+                diagnosis: parentTreatment.diagnosis,
+                medication: parentTreatment.medication,
+                dosage: parentTreatment.dosage,
+                administrationMethod: parentTreatment.administrationMethod,
+                person: parentTreatment.person,
+                duration: parentTreatment.duration,
+                waitingPeriod: parentTreatment.waitingPeriod,
+                notes: parentTreatment.notes
+            }];
+        }
+        
+        // Add new treatment to the array
+        parentTreatment.treatments.push(treatmentData);
+        
+        // Update main record
+        parentTreatment.status = 'In Behandlung'; // Reset status for follow-up
+        parentTreatment.lastModified = new Date().toISOString();
+        parentTreatment.synced = false;
+        
+        // Add to history
+        parentTreatment.history = parentTreatment.history || [];
+        parentTreatment.history.push({
+            date: new Date().toISOString(),
+            action: 'Nachbehandlung hinzugefügt',
+            medication: treatmentData.medication,
+            diagnosis: treatmentData.diagnosis
+        });
+        
+        await db.updateTreatment(parentTreatment);
     }
 }
 
@@ -341,8 +406,8 @@ async function loadTreatments() {
         // Update statistics
         updateStatistics(treatments);
         
-        // Sort by date (newest first)
-        treatments.sort((a, b) => new Date(b.treatmentDate) - new Date(a.treatmentDate));
+        // Sort by last modified date (newest first)
+        treatments.sort((a, b) => new Date(b.lastModified) - new Date(a.lastModified));
         
         // Update virtual scroller
         virtualScroller.setItems(treatments);
@@ -365,11 +430,27 @@ function createTreatmentElement(treatment) {
         statusClass = 'status-follow-up';
     }
     
-    // Calculate waiting period
+    // Get treatment data (support both new and old format)
+    const treatments = treatment.treatments || [{
+        date: treatment.treatmentDate || treatment.date,
+        diagnosis: treatment.diagnosis,
+        medication: treatment.medication,
+        dosage: treatment.dosage,
+        administrationMethod: treatment.administrationMethod,
+        person: treatment.person,
+        duration: treatment.duration,
+        waitingPeriod: treatment.waitingPeriod,
+        notes: treatment.notes
+    }];
+    
+    const latestTreatment = treatments[treatments.length - 1];
+    const firstTreatment = treatments[0];
+    
+    // Calculate waiting period from latest treatment
     let waitingInfo = '';
-    if (treatment.waitingPeriod && treatment.treatmentDate) {
-        const endDate = new Date(treatment.treatmentDate);
-        endDate.setDate(endDate.getDate() + parseInt(treatment.waitingPeriod));
+    if (latestTreatment.waitingPeriod && latestTreatment.date) {
+        const endDate = new Date(latestTreatment.date);
+        endDate.setDate(endDate.getDate() + parseInt(latestTreatment.waitingPeriod));
         const today = new Date();
         const daysRemaining = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
         
@@ -378,17 +459,35 @@ function createTreatmentElement(treatment) {
         }
     }
     
+    // Create treatments display
+    let treatmentsDisplay = '';
+    treatments.forEach((t, index) => {
+        const isLatest = index === treatments.length - 1;
+        const treatmentClass = isLatest ? 'current-treatment' : 'previous-treatment';
+        
+        treatmentsDisplay += `
+            <div class="${treatmentClass}" style="margin-bottom: var(--spacing-sm); ${!isLatest ? 'opacity: 0.7; font-size: var(--font-size-sm);' : ''}">
+                <div style="color: var(--gray-500); font-size: var(--font-size-xs);">
+                    ${index === 0 ? 'Erstbehandlung' : `Nachbehandlung ${index}`} - ${new Date(t.date).toLocaleDateString('de-DE')}
+                </div>
+                <div><strong>Diagnose:</strong> ${t.diagnosis}</div>
+                <div><strong>Behandlung:</strong> ${t.medication} ${t.dosage ? `(${t.dosage})` : ''}</div>
+                ${t.person ? `<div><strong>Behandler:</strong> ${t.person}</div>` : ''}
+                ${t.notes ? `<div><strong>Notizen:</strong> ${t.notes}</div>` : ''}
+            </div>
+        `;
+    });
+    
     item.innerHTML = `
         <div class="treatment-header">
             <span class="sau-number">${treatment.sauNumber}</span>
             <span class="status-badge ${statusClass}">${treatment.status}</span>
         </div>
-        <div class="treatment-date">${new Date(treatment.treatmentDate).toLocaleDateString('de-DE')}</div>
+        <div class="treatment-summary">
+            <strong>${treatment.tiertyp}</strong> - ${treatments.length} Behandlung${treatments.length > 1 ? 'en' : ''}
+        </div>
         <div class="treatment-details">
-            <strong>${treatment.tiertyp}:</strong> ${treatment.diagnosis}<br>
-            <strong>Behandlung:</strong> ${treatment.medication} ${treatment.dosage ? `(${treatment.dosage})` : ''}<br>
-            ${treatment.person ? `<strong>Behandler:</strong> ${treatment.person}<br>` : ''}
-            ${treatment.notes ? `<strong>Notizen:</strong> ${treatment.notes}<br>` : ''}
+            ${treatmentsDisplay}
         </div>
         ${waitingInfo}
         
@@ -426,22 +525,28 @@ window.editTreatment = async function(id) {
         if (treatment) {
             isEditMode = true;
             editingId = id;
+            isFollowUpMode = false;
+            followUpParentId = null;
+            
+            // Get the latest treatment data
+            const latestTreatment = treatment.treatments && treatment.treatments.length > 0 
+                ? treatment.treatments[treatment.treatments.length - 1]
+                : treatment; // Backwards compatibility
             
             // Fill form
             document.getElementById('treatment-id').value = treatment.id;
             document.getElementById('tiertyp').value = treatment.tiertyp || 'Altsau';
             document.getElementById('sauNumber').value = treatment.sauNumber;
-            document.getElementById('treatmentDate').value = treatment.treatmentDate;
-            document.getElementById('diagnosis').value = treatment.diagnosis;
-            document.getElementById('medication').value = treatment.medication;
-            document.getElementById('dosage').value = treatment.dosage || '';
-            document.getElementById('administrationMethod').value = treatment.administrationMethod || 'i.m.';
-            document.getElementById('person').value = treatment.person || '';
-            document.getElementById('treatment-duration').value = treatment.duration || '';
-            document.getElementById('waitingPeriod').value = treatment.waitingPeriod || '';
+            document.getElementById('treatmentDate').value = latestTreatment.date || latestTreatment.treatmentDate;
+            document.getElementById('diagnosis').value = latestTreatment.diagnosis;
+            document.getElementById('medication').value = latestTreatment.medication;
+            document.getElementById('dosage').value = latestTreatment.dosage || '';
+            document.getElementById('administrationMethod').value = latestTreatment.administrationMethod || 'i.m.';
+            document.getElementById('person').value = latestTreatment.person || '';
+            document.getElementById('treatment-duration').value = latestTreatment.duration || '';
+            document.getElementById('waitingPeriod').value = latestTreatment.waitingPeriod || '';
             document.getElementById('status').value = treatment.status;
-            document.getElementById('notes').value = treatment.notes || '';
-            document.getElementById('parent-id').value = treatment.parentId || '';
+            document.getElementById('notes').value = latestTreatment.notes || '';
             
             // Update UI
             document.getElementById('form-title').textContent = 'Behandlung bearbeiten';
@@ -479,13 +584,23 @@ window.createFollowUp = async function(parentId) {
         if (parentTreatment) {
             clearForm();
             
+            // Set follow-up mode
+            isFollowUpMode = true;
+            followUpParentId = parentId;
+            
             // Pre-fill form with parent data
-            document.getElementById('parent-id').value = parentId;
             document.getElementById('tiertyp').value = parentTreatment.tiertyp;
             document.getElementById('sauNumber').value = parentTreatment.sauNumber;
-            document.getElementById('diagnosis').value = `Nachbehandlung: ${parentTreatment.diagnosis}`;
             
-            document.getElementById('form-title').textContent = 'Nachbehandlung erfassen';
+            // Get original diagnosis for reference
+            const originalDiagnosis = parentTreatment.treatments && parentTreatment.treatments.length > 0 
+                ? parentTreatment.treatments[0].diagnosis 
+                : parentTreatment.diagnosis;
+            
+            document.getElementById('diagnosis').value = `Nachbehandlung: ${originalDiagnosis}`;
+            
+            document.getElementById('form-title').textContent = `Nachbehandlung für ${parentTreatment.sauNumber}`;
+            document.getElementById('save-btn').textContent = 'Nachbehandlung hinzufügen';
             
             showTab('tab-form');
         }
@@ -527,10 +642,11 @@ window.changeStatus = async function(id, newStatus) {
 function clearForm() {
     isEditMode = false;
     editingId = null;
+    isFollowUpMode = false;
+    followUpParentId = null;
     
     document.getElementById('treatment-form').reset();
     document.getElementById('treatment-id').value = '';
-    document.getElementById('parent-id').value = '';
     document.getElementById('template-select').value = '';
     document.getElementById('treatmentDate').value = new Date().toISOString().split('T')[0];
     document.getElementById('status').value = 'In Behandlung';
@@ -563,10 +679,15 @@ function updateStatistics(treatments) {
         t.status === 'In Behandlung' || t.status === 'Nachbehandlung nötig'
     ).length;
     
-    // Today's treatments
-    const todayCount = treatments.filter(t => 
-        new Date(t.treatmentDate).toDateString() === today
-    ).length;
+    // Today's treatments (check all treatment dates)
+    const todayCount = treatments.filter(t => {
+        if (t.treatments && t.treatments.length > 0) {
+            return t.treatments.some(treatment => 
+                new Date(treatment.date).toDateString() === today
+            );
+        }
+        return new Date(t.treatmentDate || t.date).toDateString() === today;
+    }).length;
     
     // Total treatments
     const totalCount = treatments.length;
@@ -751,6 +872,3 @@ function setupPullToRefresh() {
         isPulling = false;
     });
 }
-
-
-

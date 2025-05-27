@@ -1,9 +1,11 @@
-// ===== Module: exporter.js =====
+// ===== Module: exporter.js - Updated for multiple treatments =====
 export class DataExporter {
     exportToCSV(treatments) {
         const headers = [
             'Sau-Nr',
             'Tiertyp',
+            'Status',
+            'Behandlung #',
             'Datum',
             'Diagnose',
             'Medikament',
@@ -12,24 +14,43 @@ export class DataExporter {
             'Behandler',
             'Dauer (Tage)',
             'Wartezeit (Tage)',
-            'Status',
             'Notizen'
         ];
         
-        const rows = treatments.map(t => [
-            t.sauNumber,
-            t.tiertyp,
-            t.treatmentDate,
-            t.diagnosis,
-            t.medication,
-            t.dosage || '',
-            t.administrationMethod || '',
-            t.person || '',
-            t.duration || '',
-            t.waitingPeriod || '',
-            t.status,
-            t.notes || ''
-        ]);
+        const rows = [];
+        
+        treatments.forEach(treatment => {
+            // Handle both new format (with treatments array) and old format
+            const treatmentData = treatment.treatments || [{
+                date: treatment.treatmentDate || treatment.date,
+                diagnosis: treatment.diagnosis,
+                medication: treatment.medication,
+                dosage: treatment.dosage,
+                administrationMethod: treatment.administrationMethod,
+                person: treatment.person,
+                duration: treatment.duration,
+                waitingPeriod: treatment.waitingPeriod,
+                notes: treatment.notes
+            }];
+            
+            treatmentData.forEach((t, index) => {
+                rows.push([
+                    treatment.sauNumber,
+                    treatment.tiertyp,
+                    treatment.status,
+                    index + 1, // Treatment number
+                    t.date,
+                    t.diagnosis,
+                    t.medication || '',
+                    t.dosage || '',
+                    t.administrationMethod || '',
+                    t.person || '',
+                    t.duration || '',
+                    t.waitingPeriod || '',
+                    t.notes || ''
+                ]);
+            });
+        });
         
         // Build CSV string
         const csv = [
@@ -49,7 +70,24 @@ export class DataExporter {
     }
     
     exportToJSON(treatments) {
-        const json = JSON.stringify(treatments, null, 2);
+        // Export with full structure including multiple treatments
+        const exportData = treatments.map(treatment => ({
+            ...treatment,
+            // Ensure backwards compatibility
+            treatments: treatment.treatments || [{
+                date: treatment.treatmentDate || treatment.date,
+                diagnosis: treatment.diagnosis,
+                medication: treatment.medication,
+                dosage: treatment.dosage,
+                administrationMethod: treatment.administrationMethod,
+                person: treatment.person,
+                duration: treatment.duration,
+                waitingPeriod: treatment.waitingPeriod,
+                notes: treatment.notes
+            }]
+        }));
+        
+        const json = JSON.stringify(exportData, null, 2);
         this.downloadFile(json, `behandlungen_${new Date().toISOString().split('T')[0]}.json`, 'application/json');
     }
     
