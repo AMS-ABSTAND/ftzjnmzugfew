@@ -1,34 +1,48 @@
 // Sauen Behandlung App - Service Worker
-// Version 1.0.0
+// Version 1.1.0 - Fixed for GitHub Pages
 
-const CACHE_NAME = 'sauen-app-v1.0.0';
-const STATIC_CACHE_NAME = 'sauen-app-static-v1.0.0';
-const DYNAMIC_CACHE_NAME = 'sauen-app-dynamic-v1.0.0';
+const CACHE_NAME = 'sauen-app-v1.1.0';
+const STATIC_CACHE_NAME = 'sauen-app-static-v1.1.0';
+const DYNAMIC_CACHE_NAME = 'sauen-app-dynamic-v1.1.0';
 
 // Statische Dateien die beim Install gecacht werden
+// Nur Dateien die definitiv existieren
 const STATIC_FILES = [
-    '/',
-    '/index.html',
-    '/styles.css',
-    '/app.js',
-    '/manifest.json',
-    '/modules/database.js',
-    '/modules/virtualScroller.js',
-    '/modules/search.js',
-    '/modules/exporter.js',
-    '/modules/sync.js',
-    '/modules/serviceWorker.js'
+    './',
+    './index.html',
+    './styles.css',
+    './app.js'
 ];
 
-// Install Event - Cache statische Dateien
+// Optionale Dateien die gecacht werden wenn sie existieren
+const OPTIONAL_FILES = [
+    './manifest.json',
+    './modules/database.js',
+    './modules/virtualScroller.js',
+    './modules/search.js',
+    './modules/exporter.js',
+    './modules/sync.js',
+    './modules/serviceWorker.js',
+    './icon-192.png',
+    './favicon.svg'
+];
+
+// Install Event - Cache statische Dateien mit robustem Fehlerhandling
 self.addEventListener('install', event => {
     console.log('Service Worker: Installing...');
     
     event.waitUntil(
         caches.open(STATIC_CACHE_NAME)
             .then(cache => {
-                console.log('Service Worker: Caching static files');
-                return cache.addAll(STATIC_FILES);
+                console.log('Service Worker: Caching essential files');
+                
+                // Cache essential files first
+                return cacheFilesWithFallback(cache, STATIC_FILES)
+                    .then(() => {
+                        console.log('Service Worker: Essential files cached');
+                        // Try to cache optional files
+                        return cacheFilesWithFallback(cache, OPTIONAL_FILES, true);
+                    });
             })
             .then(() => {
                 console.log('Service Worker: Installation complete');
@@ -36,9 +50,34 @@ self.addEventListener('install', event => {
             })
             .catch(error => {
                 console.error('Service Worker: Installation failed', error);
+                // Don't fail installation if some files can't be cached
+                return self.skipWaiting();
             })
     );
 });
+
+// Robuste Cache-Funktion
+async function cacheFilesWithFallback(cache, files, optional = false) {
+    const cachePromises = files.map(async (file) => {
+        try {
+            const response = await fetch(file);
+            if (response.ok) {
+                await cache.put(file, response);
+                console.log(`✅ Cached: ${file}`);
+            } else {
+                console.log(`⚠️ Skipped (${response.status}): ${file}`);
+            }
+        } catch (error) {
+            if (optional) {
+                console.log(`⚠️ Optional file not found: ${file}`);
+            } else {
+                console.error(`❌ Failed to cache: ${file}`, error);
+            }
+        }
+    });
+    
+    await Promise.allSettled(cachePromises);
+}
 
 // Activate Event - Cleanup alte Caches
 self.addEventListener('activate', event => {
@@ -74,12 +113,17 @@ self.addEventListener('fetch', event => {
     if (requestUrl.origin !== location.origin) {
         return;
     }
+
+    // Skip chrome-extension requests
+    if (requestUrl.protocol === 'chrome-extension:') {
+        return;
+    }
     
     // Spezielle Behandlung für verschiedene Request-Typen
-    if (event.request.destination === 'document') {
+    if (event.request.destination === 'document' || event.request.mode === 'navigate') {
         // HTML Requests - Cache First mit Network Fallback
         event.respondWith(handleDocumentRequest(event.request));
-    } else if (STATIC_FILES.some(file => event.request.url.endsWith(file))) {
+    } else if (isStaticAsset(event.request.url)) {
         // Statische Dateien - Cache First
         event.respondWith(handleStaticRequest(event.request));
     } else {
@@ -88,38 +132,61 @@ self.addEventListener('fetch', event => {
     }
 });
 
+// Prüfe ob es sich um ein statisches Asset handelt
+function isStaticAsset(url) {
+    return url.includes('.css') || 
+           url.includes('.js') || 
+           url.includes('.png') || 
+           url.includes('.jpg') || 
+           url.includes('.svg') || 
+           url.includes('.ico') ||
+           url.includes('.json');
+}
+
 // HTML Document Requests
 async function handleDocumentRequest(request) {
     try {
-        // Versuche zuerst aus Cache
+        // Network First für HTML
+        const networkResponse = await fetch(request);
+        
+        // Cache die Response für später
+        if (networkResponse.ok) {
+            const cache = await caches.open(STATIC_CACHE_NAME);
+            cache.put(request, networkResponse.clone()).catch(err => {
+                console.log('Failed to cache document:', err);
+            });
+        }
+        
+        return networkResponse;
+    } catch (error) {
+        console.log('Network failed, trying cache for:', request.url);
+        
+        // Fallback zu Cache
         const cachedResponse = await caches.match(request);
         if (cachedResponse) {
             return cachedResponse;
         }
         
-        // Falls nicht im Cache, lade vom Network
-        const networkResponse = await fetch(request);
-        
-        // Cache die Response für später
-        if (networkResponse.status === 200) {
-            const cache = await caches.open(STATIC_CACHE_NAME);
-            cache.put(request, networkResponse.clone());
+        // Fallback zu index.html
+        const indexResponse = await caches.match('./index.html');
+        if (indexResponse) {
+            return indexResponse;
         }
         
-        return networkResponse;
-    } catch (error) {
-        // Offline Fallback
-        const cachedResponse = await caches.match('/index.html');
-        if (cachedResponse) {
-            return cachedResponse;
-        }
-        
+        // Letzter Fallback
         return new Response(
-            '<h1>Offline</h1><p>Die App ist offline verfügbar, aber diese Seite konnte nicht geladen werden.</p>',
+            `<!DOCTYPE html>
+            <html>
+            <head><title>Offline</title></head>
+            <body>
+                <h1>🐷 Sauen App - Offline</h1>
+                <p>Die App ist offline. Bitte überprüfen Sie Ihre Internetverbindung.</p>
+                <button onclick="window.location.reload()">Neu laden</button>
+            </body>
+            </html>`,
             { 
                 headers: { 'Content-Type': 'text/html' },
-                status: 503,
-                statusText: 'Service Unavailable'
+                status: 200
             }
         );
     }
@@ -128,7 +195,7 @@ async function handleDocumentRequest(request) {
 // Statische Dateien (CSS, JS, etc.)
 async function handleStaticRequest(request) {
     try {
-        // Cache First Strategie
+        // Cache First Strategie für statische Assets
         const cachedResponse = await caches.match(request);
         if (cachedResponse) {
             return cachedResponse;
@@ -137,16 +204,28 @@ async function handleStaticRequest(request) {
         // Vom Network laden und cachen
         const networkResponse = await fetch(request);
         
-        if (networkResponse.status === 200) {
+        if (networkResponse.ok) {
             const cache = await caches.open(STATIC_CACHE_NAME);
-            cache.put(request, networkResponse.clone());
+            cache.put(request, networkResponse.clone()).catch(err => {
+                console.log('Failed to cache static asset:', err);
+            });
         }
         
         return networkResponse;
     } catch (error) {
         console.error('Failed to fetch static resource:', request.url, error);
         
-        // Fallback Response
+        // Fallback Response je nach Dateityp
+        if (request.url.includes('.css')) {
+            return new Response('/* Offline - CSS not available */', {
+                headers: { 'Content-Type': 'text/css' }
+            });
+        } else if (request.url.includes('.js')) {
+            return new Response('console.log("Offline - JS not available");', {
+                headers: { 'Content-Type': 'application/javascript' }
+            });
+        }
+        
         return new Response('Resource not available offline', {
             status: 503,
             statusText: 'Service Unavailable'
@@ -161,9 +240,11 @@ async function handleDynamicRequest(request) {
         const networkResponse = await fetch(request);
         
         // Cache erfolgreiche GET requests
-        if (request.method === 'GET' && networkResponse.status === 200) {
+        if (request.method === 'GET' && networkResponse.ok) {
             const cache = await caches.open(DYNAMIC_CACHE_NAME);
-            cache.put(request, networkResponse.clone());
+            cache.put(request, networkResponse.clone()).catch(err => {
+                console.log('Failed to cache dynamic request:', err);
+            });
         }
         
         return networkResponse;
@@ -204,14 +285,15 @@ async function syncTreatments() {
         console.log('Service Worker: Syncing treatments...');
         
         // Hier würde die tatsächliche Synchronisation mit dem Backend stattfinden
-        // Da wir kein Backend haben, loggen wir nur
+        // Da wir kein Backend haben, simulieren wir erfolgreiche Sync
         
         // Benachrichtige die App über erfolgreiche Synchronisation
         const clients = await self.clients.matchAll();
         clients.forEach(client => {
             client.postMessage({
                 type: 'SYNC_COMPLETE',
-                success: true
+                success: true,
+                timestamp: new Date().toISOString()
             });
         });
         
@@ -235,10 +317,25 @@ async function syncTreatments() {
 self.addEventListener('push', event => {
     console.log('Service Worker: Push received');
     
+    let notificationData = {
+        title: 'Sauen Behandlung',
+        body: 'Neue Benachrichtigung von der Sauen App',
+        icon: './icon-192.png',
+        badge: './icon-72.png'
+    };
+    
+    if (event.data) {
+        try {
+            notificationData = { ...notificationData, ...event.data.json() };
+        } catch (e) {
+            notificationData.body = event.data.text();
+        }
+    }
+    
     const options = {
-        body: event.data ? event.data.text() : 'Neue Benachrichtigung von der Sauen App',
-        icon: '/icon-192.png',
-        badge: '/icon-72.png',
+        body: notificationData.body,
+        icon: notificationData.icon,
+        badge: notificationData.badge,
         vibrate: [200, 100, 200],
         data: {
             dateOfArrival: Date.now(),
@@ -247,8 +344,7 @@ self.addEventListener('push', event => {
         actions: [
             {
                 action: 'open',
-                title: 'App öffnen',
-                icon: '/icon-192.png'
+                title: 'App öffnen'
             },
             {
                 action: 'close',
@@ -258,7 +354,7 @@ self.addEventListener('push', event => {
     };
     
     event.waitUntil(
-        self.registration.showNotification('Sauen Behandlung', options)
+        self.registration.showNotification(notificationData.title, options)
     );
 });
 
@@ -270,7 +366,7 @@ self.addEventListener('notificationclick', event => {
     
     if (event.action === 'open' || !event.action) {
         event.waitUntil(
-            clients.openWindow('/')
+            clients.openWindow('./')
         );
     }
 });
@@ -295,6 +391,7 @@ self.addEventListener('error', event => {
 
 self.addEventListener('unhandledrejection', event => {
     console.error('Service Worker: Unhandled rejection:', event.reason);
+    event.preventDefault(); // Verhindert, dass der Fehler in der Konsole angezeigt wird
 });
 
-console.log('Service Worker: Script loaded');
+console.log('Service Worker: Script loaded - Version 1.1.0');

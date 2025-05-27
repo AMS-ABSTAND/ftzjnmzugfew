@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Service Worker Status - Sauen App</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .status-card {
+            background: #f8f9fa;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 4px solid #2196F3;
+        }
+        .status-good { border-left-color: #4CAF50; }
+        .status-warning { border-left-color: #FF9800; }
+        .status-error { border-left-color: #F44336; }
+        .cache-list {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        button {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #1976D2;
+        }
+        .back-link {
+            color: #2196F3;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🐷 Service Worker Status</h1>
+        <p><a href="./" class="back-link">← Zurück zur App</a></p>
+        
+        <div id="sw-support" class="status-card">
+            <h3>Browser Unterstützung</h3>
+            <div id="support-status">Prüfe...</div>
+        </div>
+        
+        <div id="sw-registration" class="status-card">
+            <h3>Service Worker Registrierung</h3>
+            <div id="registration-status">Prüfe...</div>
+        </div>
+        
+        <div id="cache-status" class="status-card">
+            <h3>Cache Status</h3>
+            <div id="cache-info">Prüfe...</div>
+            <div id="cache-contents"></div>
+        </div>
+        
+        <div class="status-card">
+            <h3>Aktionen</h3>
+            <button onclick="checkStatus()">Status aktualisieren</button>
+            <button onclick="clearCaches()">Alle Caches löschen</button>
+            <button onclick="forceUpdate()">Service Worker aktualisieren</button>
+            <button onclick="testOffline()">Offline-Test</button>
+        </div>
+        
+        <div id="test-results" class="status-card" style="display: none;">
+            <h3>Test Ergebnisse</h3>
+            <div id="test-output"></div>
+        </div>
+    </div>
+
+    <script>
+        async function checkStatus() {
+            console.log('Checking Service Worker status...');
+            
+            // Browser Support
+            const supportDiv = document.getElementById('support-status');
+            if ('serviceWorker' in navigator) {
+                supportDiv.innerHTML = '✅ Service Worker wird unterstützt';
+                supportDiv.parentElement.className = 'status-card status-good';
+            } else {
+                supportDiv.innerHTML = '❌ Service Worker wird nicht unterstützt';
+                supportDiv.parentElement.className = 'status-card status-error';
+                return;
+            }
+            
+            // Registration Status
+            const regDiv = document.getElementById('registration-status');
+            try {
+                const registration = await navigator.serviceWorker.getRegistration();
+                if (registration) {
+                    const state = registration.active ? registration.active.state : 'unknown';
+                    regDiv.innerHTML = `✅ Service Worker registriert (${state})`;
+                    regDiv.parentElement.className = 'status-card status-good';
+                } else {
+                    regDiv.innerHTML = '⚠️ Kein Service Worker registriert';
+                    regDiv.parentElement.className = 'status-card status-warning';
+                }
+            } catch (error) {
+                regDiv.innerHTML = `❌ Fehler: ${error.message}`;
+                regDiv.parentElement.className = 'status-card status-error';
+            }
+            
+            // Cache Status
+            await checkCacheStatus();
+        }
+        
+        async function checkCacheStatus() {
+            const cacheDiv = document.getElementById('cache-info');
+            const contentsDiv = document.getElementById('cache-contents');
+            
+            try {
+                const cacheNames = await caches.keys();
+                
+                if (cacheNames.length === 0) {
+                    cacheDiv.innerHTML = '⚠️ Keine Caches gefunden';
+                    cacheDiv.parentElement.className = 'status-card status-warning';
+                    contentsDiv.innerHTML = '';
+                    return;
+                }
+                
+                cacheDiv.innerHTML = `✅ ${cacheNames.length} Cache(s) gefunden`;
+                cacheDiv.parentElement.className = 'status-card status-good';
+                
+                let html = '';
+                for (const cacheName of cacheNames) {
+                    const cache = await caches.open(cacheName);
+                    const requests = await cache.keys();
+                    
+                    html += `<h4>${cacheName} (${requests.length} Dateien)</h4>`;
+                    html += '<div class="cache-list">';
+                    requests.forEach(req => {
+                        const url = req.url.replace(window.location.origin, '');
+                        html += `${url}\n`;
+                    });
+                    html += '</div>';
+                }
+                contentsDiv.innerHTML = html;
+                
+            } catch (error) {
+                cacheDiv.innerHTML = `❌ Cache Fehler: ${error.message}`;
+                cacheDiv.parentElement.className = 'status-card status-error';
+            }
+        }
+        
+        async function clearCaches() {
+            if (!confirm('Alle Caches löschen? Die App wird beim nächsten Besuch alles neu laden.')) {
+                return;
+            }
+            
+            try {
+                const cacheNames = await caches.keys();
+                await Promise.all(cacheNames.map(name => caches.delete(name)));
+                alert('Alle Caches gelöscht!');
+                await checkStatus();
+            } catch (error) {
+                alert('Fehler beim Löschen: ' + error.message);
+            }
+        }
+        
+        async function forceUpdate() {
+            try {
+                const registration = await navigator.serviceWorker.getRegistration();
+                if (registration) {
+                    await registration.update();
+                    alert('Update eingeleitet! Seite neu laden um Änderungen zu sehen.');
+                } else {
+                    alert('Kein Service Worker registriert');
+                }
+            } catch (error) {
+                alert('Update Fehler: ' + error.message);
+            }
+        }
+        
+        async function testOffline() {
+            const testDiv = document.getElementById('test-results');
+            const outputDiv = document.getElementById('test-output');
+            
+            testDiv.style.display = 'block';
+            outputDiv.innerHTML = 'Teste Offline-Funktionalität...\n';
+            
+            const testUrls = [
+                './',
+                './index.html',
+                './styles.css',
+                './app.js'
+            ];
+            
+            for (const url of testUrls) {
+                try {
+                    const cached = await caches.match(url);
+                    if (cached) {
+                        outputDiv.innerHTML += `✅ ${url} - Im Cache verfügbar\n`;
+                    } else {
+                        outputDiv.innerHTML += `❌ ${url} - NICHT im Cache\n`;
+                    }
+                } catch (error) {
+                    outputDiv.innerHTML += `❌ ${url} - Fehler: ${error.message}\n`;
+                }
+            }
+            
+            outputDiv.innerHTML += '\nTest abgeschlossen!';
+        }
+        
+        // Status beim Laden prüfen
+        document.addEventListener('DOMContentLoaded', checkStatus);
+    </script>
+</body>
+</html>

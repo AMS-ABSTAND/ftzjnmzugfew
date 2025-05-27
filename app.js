@@ -131,8 +131,22 @@ document.addEventListener('DOMContentLoaded', async function() {
         
         // Initialize service worker (graceful fallback if it fails)
         const swManager = new ServiceWorkerManager();
+        window.swManager = swManager; // Global verfügbar machen
         try {
             await swManager.register();
+            
+            // Listen for service worker messages
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.addEventListener('message', (event) => {
+                    if (event.data && event.data.type === 'SYNC_COMPLETE') {
+                        if (event.data.success) {
+                            showNotification('Synchronisation im Hintergrund erfolgreich!', 'success');
+                        } else {
+                            console.log('Background sync failed:', event.data.error);
+                        }
+                    }
+                });
+            }
         } catch (error) {
             console.log('Service Worker initialization failed, but app continues normally:', error);
         }
@@ -840,6 +854,43 @@ function updateOnlineStatus() {
         indicator.style.display = 'block';
     }
 }
+
+// ===== Debug Functions (können in der Konsole aufgerufen werden) =====
+window.debugServiceWorker = async function() {
+    if (!('serviceWorker' in navigator)) {
+        console.log('Service Worker nicht unterstützt');
+        return;
+    }
+    
+    try {
+        const cacheNames = await caches.keys();
+        console.log('📦 Verfügbare Caches:', cacheNames);
+        
+        for (const cacheName of cacheNames) {
+            const cache = await caches.open(cacheName);
+            const requests = await cache.keys();
+            console.log(`\n📁 Cache: ${cacheName}`);
+            console.log('   Gecachte Dateien:');
+            requests.forEach(req => {
+                console.log(`   ✅ ${req.url}`);
+            });
+        }
+        
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (registration) {
+            console.log('\n🔧 Service Worker Status:');
+            console.log('   Installing:', registration.installing);
+            console.log('   Waiting:', registration.waiting);
+            console.log('   Active:', registration.active);
+        }
+    } catch (error) {
+        console.error('Debug failed:', error);
+    }
+};
+
+// Füge Debug-Info zur Konsole hinzu
+console.log('🐷 Sauen App geladen!');
+console.log('Debug: Tippen Sie debugServiceWorker() in die Konsole für Cache-Info');
 
 // ===== Pull to Refresh =====
 function setupPullToRefresh() {
