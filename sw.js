@@ -1,30 +1,37 @@
 // Sauen Behandlung App - Service Worker
-// Version 1.1.0 - Fixed for GitHub Pages
+// Version 1.3.0 - Auto Path Detection
 
-const CACHE_NAME = 'sauen-app-v1.1.0';
-const STATIC_CACHE_NAME = 'sauen-app-static-v1.1.0';
-const DYNAMIC_CACHE_NAME = 'sauen-app-dynamic-v1.1.0';
+const CACHE_NAME = 'sauen-app-v1.3.0';
+const STATIC_CACHE_NAME = 'sauen-app-static-v1.3.0';
+const DYNAMIC_CACHE_NAME = 'sauen-app-dynamic-v1.3.0';
+
+// Automatische Pfaderkennung basierend auf Service Worker URL
+const BASE_PATH = (() => {
+    const swUrl = new URL(self.location);
+    const path = swUrl.pathname.replace('/sw.js', '/');
+    console.log('Service Worker: Detected base path:', path);
+    return path;
+})();
 
 // Statische Dateien die beim Install gecacht werden
-// Nur Dateien die definitiv existieren
 const STATIC_FILES = [
-    './',
-    './index.html',
-    './styles.css',
-    './app.js'
+    BASE_PATH,
+    BASE_PATH + 'index.html',
+    BASE_PATH + 'styles.css',
+    BASE_PATH + 'app.js'
 ];
 
 // Optionale Dateien die gecacht werden wenn sie existieren
 const OPTIONAL_FILES = [
-    './manifest.json',
-    './modules/database.js',
-    './modules/virtualScroller.js',
-    './modules/search.js',
-    './modules/exporter.js',
-    './modules/sync.js',
-    './modules/serviceWorker.js',
-    './icon-192.png',
-    './favicon.svg'
+    BASE_PATH + 'manifest.json',
+    BASE_PATH + 'modules/database.js',
+    BASE_PATH + 'modules/virtualScroller.js',
+    BASE_PATH + 'modules/search.js',
+    BASE_PATH + 'modules/exporter.js',
+    BASE_PATH + 'modules/sync.js',
+    BASE_PATH + 'modules/serviceWorker.js',
+    BASE_PATH + 'icon-192.png',
+    BASE_PATH + 'favicon.svg'
 ];
 
 // Install Event - Cache statische Dateien mit robustem Fehlerhandling
@@ -109,8 +116,8 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
     const requestUrl = new URL(event.request.url);
     
-    // Nur requests zur eigenen Domain bearbeiten
-    if (requestUrl.origin !== location.origin) {
+    // Nur requests zur eigenen Domain und dem korrekten Pfad bearbeiten
+    if (requestUrl.origin !== location.origin || !requestUrl.pathname.startsWith(BASE_PATH)) {
         return;
     }
 
@@ -168,7 +175,7 @@ async function handleDocumentRequest(request) {
         }
         
         // Fallback zu index.html
-        const indexResponse = await caches.match('./index.html');
+        const indexResponse = await caches.match(BASE_PATH + 'index.html');
         if (indexResponse) {
             return indexResponse;
         }
@@ -320,8 +327,8 @@ self.addEventListener('push', event => {
     let notificationData = {
         title: 'Sauen Behandlung',
         body: 'Neue Benachrichtigung von der Sauen App',
-        icon: './icon-192.png',
-        badge: './icon-72.png'
+        icon: BASE_PATH + 'icon-192.png',
+        badge: BASE_PATH + 'icon-72.png'
     };
     
     if (event.data) {
@@ -366,7 +373,7 @@ self.addEventListener('notificationclick', event => {
     
     if (event.action === 'open' || !event.action) {
         event.waitUntil(
-            clients.openWindow('./')
+            clients.openWindow(BASE_PATH)
         );
     }
 });
@@ -394,4 +401,4 @@ self.addEventListener('unhandledrejection', event => {
     event.preventDefault(); // Verhindert, dass der Fehler in der Konsole angezeigt wird
 });
 
-console.log('Service Worker: Script loaded - Version 1.1.0');
+console.log('Service Worker: Script loaded - Version 1.3.0 for', BASE_PATH);

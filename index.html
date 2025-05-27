@@ -11,13 +11,17 @@
     <meta name="description" content="Digitale Behandlungsverwaltung für Schweine">
     
     <!-- PWA Manifest -->
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="./manifest.json">
     
     <!-- iOS Icons -->
-    <link rel="apple-touch-icon" href="icon-180.png">
+    <link rel="apple-touch-icon" href="./icon-180.png">
+    
+    <!-- Favicon -->
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="./favicon.ico" type="image/x-icon">
     
     <!-- Styles -->
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="./styles.css">
     
     <title>Sauen Behandlung</title>
 </head>
@@ -42,9 +46,14 @@
     <!-- Header -->
     <header class="header">
         <h1>Sauen Behandlung</h1>
-        <button class="header-action" id="sync-button" title="Synchronisieren">
-            <span class="sync-icon">🔄</span>
-        </button>
+        <div class="header-actions">
+            <button class="header-action" id="debug-button" title="Debug Info" style="display: none;">
+                🔧
+            </button>
+            <button class="header-action" id="sync-button" title="Synchronisieren">
+                <span class="sync-icon">🔄</span>
+            </button>
+        </div>
     </header>
     
     <!-- Main Content -->
@@ -412,62 +421,70 @@
         <span class="ptr-icon">↻</span>
     </div>
     
+    <!-- Debug Link (versteckt, nur über Geste sichtbar) -->
+    <div id="debug-link" style="
+        position: fixed;
+        bottom: 140px;
+        right: 20px;
+        background: rgba(0,0,0,0.7);
+        color: white;
+        padding: 8px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        display: none;
+        z-index: 1000;
+        cursor: pointer;
+    ">
+        🔧 Debug
+    </div>
+    
     <!-- Scripts -->
-    <script src="app.js" type="module"></script>
-
-<!-- Fügen Sie diesen Code vor dem schließenden </body> Tag hinzu: -->
-
-<!-- Debug Link (versteckt, nur über Geste sichtbar) -->
-<div id="debug-link" style="
-    position: fixed;
-    bottom: 140px;
-    right: 20px;
-    background: rgba(0,0,0,0.7);
-    color: white;
-    padding: 8px 12px;
-    border-radius: 20px;
-    font-size: 12px;
-    display: none;
-    z-index: 1000;
-    cursor: pointer;
-">
-    🔧 Debug
-</div>
-
-<script>
-// Debug-Link anzeigen bei 3x Tippen auf FAB
-let tapCount = 0;
-let tapTimer;
-
-document.getElementById('fab').addEventListener('click', function() {
-    tapCount++;
+    <script src="./app.js" type="module"></script>
     
-    if (tapCount === 3) {
-        // Nach 3x Tippen Debug-Link anzeigen
-        document.getElementById('debug-link').style.display = 'block';
-        setTimeout(() => {
-            document.getElementById('debug-link').style.display = 'none';
-        }, 5000); // Nach 5 Sekunden wieder verstecken
-        tapCount = 0;
-    }
-    
-    // Reset nach 2 Sekunden
-    clearTimeout(tapTimer);
-    tapTimer = setTimeout(() => {
-        tapCount = 0;
-    }, 2000);
-});
+    <script>
+    // Debug-Link anzeigen bei 3x Tippen auf FAB
+    let tapCount = 0;
+    let tapTimer;
 
-// Debug-Link Funktionalität
-document.getElementById('debug-link').addEventListener('click', function() {
-    // Versuche zuerst externe Seite
-    const debugUrl = './sw-status.html';
-    
-    fetch(debugUrl, { method: 'HEAD' })
-        .then(response => {
-            if (response.ok) {
-                window.open(debugUrl, '_blank');
-            } else {
+    document.getElementById('fab').addEventListener('click', function() {
+        tapCount++;
+        
+        if (tapCount === 3) {
+            // Nach 3x Tippen Debug-Link anzeigen
+            document.getElementById('debug-link').style.display = 'block';
+            setTimeout(() => {
+                document.getElementById('debug-link').style.display = 'none';
+            }, 5000); // Nach 5 Sekunden wieder verstecken
+            tapCount = 0;
+        }
+        
+        // Reset nach 2 Sekunden
+        clearTimeout(tapTimer);
+        tapTimer = setTimeout(() => {
+            tapCount = 0;
+        }, 2000);
+    });
+
+    // Debug-Link Funktionalität
+    document.getElementById('debug-link').addEventListener('click', function() {
+        // Versuche zuerst externe Seite
+        const debugUrl = './sw-status.html';
+        
+        fetch(debugUrl, { method: 'HEAD' })
+            .then(response => {
+                if (response.ok) {
+                    window.open(debugUrl, '_blank');
+                } else {
+                    // Fallback: Konsolen-Debug
+                    if (window.debugServiceWorker) {
+                        window.debugServiceWorker();
+                        alert('Debug-Info in der Konsole (F12 → Console)');
+                    } else {
+                        alert('Debug nicht verfügbar');
+                    }
+                }
+            })
+            .catch(() => {
                 // Fallback: Konsolen-Debug
                 if (window.debugServiceWorker) {
                     window.debugServiceWorker();
@@ -475,20 +492,8 @@ document.getElementById('debug-link').addEventListener('click', function() {
                 } else {
                     alert('Debug nicht verfügbar');
                 }
-            }
-        })
-        .catch(() => {
-            // Fallback: Konsolen-Debug
-            if (window.debugServiceWorker) {
-                window.debugServiceWorker();
-                alert('Debug-Info in der Konsole (F12 → Console)');
-            } else {
-                alert('Debug nicht verfügbar');
-            }
-        });
-});
-</script>
-
-
+            });
+    });
+    </script>
 </body>
 </html>
