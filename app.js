@@ -135,6 +135,11 @@ document.addEventListener('DOMContentLoaded', async function() {
         try {
             await swManager.register();
             
+            // Show debug button if service worker is enabled
+            if (swManager.isServiceWorkerEnabled()) {
+                document.getElementById('debug-button').style.display = 'block';
+            }
+            
             // Listen for service worker messages
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.addEventListener('message', (event) => {
@@ -222,6 +227,9 @@ function setupEventListeners() {
     
     // Sync button
     document.getElementById('sync-button').addEventListener('click', syncData);
+    
+    // Debug button
+    document.getElementById('debug-button').addEventListener('click', openDebugPage);
     
     // Update app button
     document.getElementById('update-app').addEventListener('click', () => {
@@ -854,6 +862,209 @@ function updateOnlineStatus() {
         indicator.style.display = 'block';
     }
 }
+
+// ===== Debug Functions =====
+function openDebugPage() {
+    // Versuche zuerst externe Debug-Seite zu öffnen
+    const debugUrl = './sw-status.html';
+    
+    // Prüfe ob die Seite existiert
+    fetch(debugUrl, { method: 'HEAD' })
+        .then(response => {
+            if (response.ok) {
+                window.open(debugUrl, '_blank');
+            } else {
+                // Fallback: Zeige Debug-Modal
+                showDebugModal();
+            }
+        })
+        .catch(() => {
+            // Fallback: Zeige Debug-Modal  
+            showDebugModal();
+        });
+}
+
+function showDebugModal() {
+    // Erstelle Modal
+    const modal = document.createElement('div');
+    modal.className = 'debug-modal';
+    modal.innerHTML = `
+        <div class="debug-modal-content">
+            <div class="debug-modal-header">
+                <h3>🔧 Service Worker Debug</h3>
+                <button class="debug-modal-close">&times;</button>
+            </div>
+            <div class="debug-modal-body">
+                <div class="debug-section">
+                    <h4>Browser Support</h4>
+                    <div id="debug-support">Prüfe...</div>
+                </div>
+                <div class="debug-section">
+                    <h4>Registration Status</h4>
+                    <div id="debug-registration">Prüfe...</div>
+                </div>
+                <div class="debug-section">
+                    <h4>Cache Status</h4>
+                    <div id="debug-cache">Prüfe...</div>
+                </div>
+                <div class="debug-section">
+                    <h4>Aktionen</h4>
+                    <button class="btn btn-secondary" onclick="clearAllCaches()">Caches löschen</button>
+                    <button class="btn btn-secondary" onclick="updateServiceWorker()">SW aktualisieren</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Styles für Modal
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0,0,0,0.5);
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: var(--spacing-md);
+    `;
+    
+    const content = modal.querySelector('.debug-modal-content');
+    content.style.cssText = `
+        background: white;
+        border-radius: var(--border-radius);
+        max-width: 600px;
+        width: 100%;
+        max-height: 80vh;
+        overflow-y: auto;
+        box-shadow: var(--shadow-lg);
+    `;
+    
+    const header = modal.querySelector('.debug-modal-header');
+    header.style.cssText = `
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: var(--spacing-md);
+        border-bottom: 1px solid var(--gray-200);
+    `;
+    
+    const body = modal.querySelector('.debug-modal-body');
+    body.style.cssText = `
+        padding: var(--spacing-md);
+    `;
+    
+    const sections = modal.querySelectorAll('.debug-section');
+    sections.forEach(section => {
+        section.style.cssText = `
+            margin-bottom: var(--spacing-md);
+            padding: var(--spacing-sm);
+            background: var(--gray-100);
+            border-radius: var(--border-radius-sm);
+        `;
+    });
+    
+    const closeBtn = modal.querySelector('.debug-modal-close');
+    closeBtn.style.cssText = `
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: var(--gray-500);
+    `;
+    
+    // Event Listeners
+    closeBtn.onclick = () => modal.remove();
+    modal.onclick = (e) => {
+        if (e.target === modal) modal.remove();
+    };
+    
+    document.body.appendChild(modal);
+    
+    // Debug-Informationen laden
+    loadDebugInfo();
+}
+
+async function loadDebugInfo() {
+    // Browser Support
+    const supportDiv = document.getElementById('debug-support');
+    if ('serviceWorker' in navigator) {
+        supportDiv.innerHTML = '✅ Service Worker unterstützt';
+        supportDiv.style.color = 'var(--success-color)';
+    } else {
+        supportDiv.innerHTML = '❌ Service Worker nicht unterstützt';
+        supportDiv.style.color = 'var(--danger-color)';
+        return;
+    }
+    
+    // Registration Status
+    const regDiv = document.getElementById('debug-registration');
+    try {
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (registration) {
+            const state = registration.active ? registration.active.state : 'unknown';
+            regDiv.innerHTML = `✅ Service Worker aktiv (${state})`;
+            regDiv.style.color = 'var(--success-color)';
+        } else {
+            regDiv.innerHTML = '⚠️ Kein Service Worker registriert';
+            regDiv.style.color = 'var(--warning-color)';
+        }
+    } catch (error) {
+        regDiv.innerHTML = `❌ Fehler: ${error.message}`;
+        regDiv.style.color = 'var(--danger-color)';
+    }
+    
+    // Cache Status
+    const cacheDiv = document.getElementById('debug-cache');
+    try {
+        const cacheNames = await caches.keys();
+        if (cacheNames.length > 0) {
+            let totalFiles = 0;
+            for (const cacheName of cacheNames) {
+                const cache = await caches.open(cacheName);
+                const requests = await cache.keys();
+                totalFiles += requests.length;
+            }
+            cacheDiv.innerHTML = `✅ ${cacheNames.length} Cache(s), ${totalFiles} Dateien`;
+            cacheDiv.style.color = 'var(--success-color)';
+        } else {
+            cacheDiv.innerHTML = '⚠️ Keine Caches gefunden';
+            cacheDiv.style.color = 'var(--warning-color)';
+        }
+    } catch (error) {
+        cacheDiv.innerHTML = `❌ Cache Fehler: ${error.message}`;
+        cacheDiv.style.color = 'var(--danger-color)';
+    }
+}
+
+window.clearAllCaches = async function() {
+    if (!confirm('Alle Caches löschen?')) return;
+    
+    try {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map(name => caches.delete(name)));
+        showNotification('Alle Caches gelöscht!', 'success');
+        loadDebugInfo();
+    } catch (error) {
+        showNotification('Fehler beim Löschen: ' + error.message, 'error');
+    }
+};
+
+window.updateServiceWorker = async function() {
+    try {
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (registration) {
+            await registration.update();
+            showNotification('Service Worker Update eingeleitet!', 'success');
+        } else {
+            showNotification('Kein Service Worker registriert', 'error');
+        }
+    } catch (error) {
+        showNotification('Update Fehler: ' + error.message, 'error');
+    }
+};
 
 // ===== Debug Functions (können in der Konsole aufgerufen werden) =====
 window.debugServiceWorker = async function() {
