@@ -675,21 +675,75 @@ textarea {
     margin-bottom: 0;
 }
 
-/* ===== Treatment List ===== */
+/* ===== Treatment List - Verbessertes Scrolling ===== */
 .treatment-list-container {
     position: relative;
-    height: 600px;
+    height: calc(100vh - 420px); /* Dynamische Höhe basierend auf Viewport */
+    min-height: 400px; /* Minimum-Höhe sicherstellen */
+    max-height: 80vh; /* Maximum für sehr große Bildschirme */
     overflow-y: auto;
+    overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
     border-radius: var(--border-radius-lg);
     background: rgba(255, 255, 255, 0.05);
     backdrop-filter: blur(10px);
     border: 1px solid rgba(255, 255, 255, 0.1);
     padding: var(--spacing-sm);
+    
+    /* Verhindere Pull-to-Refresh Interferenz */
+    overscroll-behavior: contain;
+    overscroll-behavior-y: contain;
+    
+    /* Bessere Scroll-Performance */
+    will-change: scroll-position;
+    transform: translateZ(0); /* Hardware-Beschleunigung */
+}
+
+/* Scroll-Indikator für bessere UX */
+.treatment-list-container::-webkit-scrollbar {
+    width: 4px;
+}
+
+.treatment-list-container::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+}
+
+.treatment-list-container::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 2px;
+}
+
+.treatment-list-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
 }
 
 .treatment-list {
     position: relative;
+    min-height: 100%;
+    padding-bottom: var(--spacing-xl); /* Extra Padding am Ende */
+}
+
+/* Responsive Höhenanpassungen */
+@media (max-height: 600px) {
+    .treatment-list-container {
+        height: calc(100vh - 350px);
+        min-height: 250px;
+    }
+}
+
+@media (max-height: 500px) {
+    .treatment-list-container {
+        height: calc(100vh - 300px);
+        min-height: 200px;
+    }
+}
+
+@media (min-height: 800px) {
+    .treatment-list-container {
+        height: calc(100vh - 480px);
+        max-height: 600px;
+    }
 }
 
 .treatment-item {

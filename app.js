@@ -121,13 +121,16 @@ document.addEventListener('DOMContentLoaded', async function() {
         // Initialize modules
         virtualScroller = new VirtualScroller(
             document.getElementById('treatment-list'),
-            80,
+            100, // Erhöhte Item-Höhe für besseres Scrolling
             (item) => createTreatmentElement(item)
         );
         
         advancedSearch = new AdvancedSearch();
         dataExporter = new DataExporter();
         syncManager = new SyncManager();
+        
+        // Enhance virtual scroller for better mobile experience
+        enhanceVirtualScroller();
         
         // Initialize service worker (graceful fallback if it fails)
         const swManager = new ServiceWorkerManager();
@@ -163,9 +166,14 @@ document.addEventListener('DOMContentLoaded', async function() {
         const pullToRefreshEnabled = localStorage.getItem('pullToRefreshEnabled') !== 'false';
         if (pullToRefreshEnabled) {
             setupPullToRefresh();
-            console.log('🔄 Pull-to-Refresh aktiviert (3x FAB oder Debug-Button zum Deaktivieren)');
+            console.log('🔄 Pull-to-Refresh aktiviert (sehr konservativ) - 5x FAB zum Deaktivieren');
         } else {
-            console.log('❌ Pull-to-Refresh deaktiviert (Debug-Button zum Aktivieren)');
+            console.log('❌ Pull-to-Refresh deaktiviert - 5x FAB zum Aktivieren');
+            // Verstecke Pull-to-Refresh Element
+            const pullElement = document.getElementById('pull-to-refresh');
+            if (pullElement) {
+                pullElement.style.display = 'none';
+            }
         }
         
         // Set today's date
@@ -429,7 +437,9 @@ function showTab(tabId) {
     
     // Load data if list tab
     if (tabId === 'tab-list') {
-        loadTreatments();
+        setTimeout(() => {
+            loadTreatments();
+        }, 100); // Kleine Verzögerung für bessere Performance
     }
 }
 
@@ -1100,6 +1110,42 @@ window.togglePullToRefresh = function() {
 };
 
 // ===== Debug Functions (können in der Konsole aufgerufen werden) =====
+function enhanceVirtualScroller() {
+    const container = document.getElementById('treatment-list-container');
+    const list = document.getElementById('treatment-list');
+    
+    if (!container || !list) return;
+    
+    // Verhindere Scroll-Konflikte
+    container.addEventListener('touchstart', (e) => {
+        // Markiere als Liste-Scroll, nicht Pull-to-Refresh
+        container.dataset.isScrolling = 'true';
+    }, { passive: true });
+    
+    container.addEventListener('touchend', () => {
+        // Reset nach kurzer Verzögerung
+        setTimeout(() => {
+            container.dataset.isScrolling = 'false';
+        }, 100);
+    }, { passive: true });
+    
+    // Bessere Scroll-Performance
+    let scrollTimeout;
+    container.addEventListener('scroll', () => {
+        clearTimeout(scrollTimeout);
+        scrollTimeout = setTimeout(() => {
+            // Smooth scrolling ended
+            container.style.scrollBehavior = 'auto';
+        }, 150);
+    }, { passive: true });
+    
+    // Verhindere überscrollling das Pull-to-Refresh triggert
+    container.addEventListener('scroll', (e) => {
+        if (container.scrollTop < 0) {
+            container.scrollTop = 0;
+        }
+    }, { passive: false });
+}
 window.debugServiceWorker = async function() {
     if (!('serviceWorker' in navigator)) {
         console.log('Service Worker nicht unterstützt');
@@ -1136,38 +1182,79 @@ window.debugServiceWorker = async function() {
 console.log('🐷 Sauen App geladen!');
 console.log('Debug: Tippen Sie debugServiceWorker() in die Konsole für Cache-Info');
 
-// ===== Pull to Refresh - Verbesserte Version =====
+// ===== Pull to Refresh - Deutlich weniger aggressiv =====
 function setupPullToRefresh() {
     let startY = 0;
     let isPulling = false;
     let pullStartTime = 0;
-    let lastScrollY = 0;
+    let hasScrolled = false;
     const pullElement = document.getElementById('pull-to-refresh');
     
-    // Konfiguration - weniger aggressiv
+    // Viel weniger aggressive Konfiguration
     const config = {
-        minDistance: 80,        // Mindestablstand (war 50)
-        triggerDistance: 140,   // Auslöseabstand (war 100)
-        minDuration: 300,       // Mindestdauer der Geste in ms
-        scrollTolerance: 5,     // Toleranz für "scroll position 0"
-        velocityThreshold: 0.3  // Mindestgeschwindigkeit
+        minDistance: 120,       // Deutlich mehr Abstand (war 80)
+        triggerDistance: 200,   // Viel mehr zum Triggern (war 140)
+        minDuration: 800,       // Längere Dauer erforderlich (war 300)
+        scrollTolerance: 10,    // Mehr Scroll-Toleranz (war 5)
+        velocityThreshold: 0.5, // Höhere Geschwindigkeit (war 0.3)
+        maxInitialVelocity: 2.0 // Neue: Verhindert zu schnelle Gesten
     };
     
+    // Verbesserte Scroll-Erkennung
+    let scrollDetectionTimer;
+    let lastScrollTop = 0;
+    
+    function isAtTop() {
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        const listContainer = document.getElementById('treatment-list-container');
+        
+        // Prüfe sowohl Window-Scroll als auch Listen-Scroll
+        const isWindowAtTop = scrollTop <= config.scrollTolerance;
+        const isListAtTop = !listContainer || listContainer.scrollTop <= config.scrollTolerance;
+        const isNotScrollingInList = !listContainer || listContainer.dataset.isScrolling !== 'true';
+        
+        return isWindowAtTop && isListAtTop && isNotScrollingInList;
+    }
+    
+    function detectScrollIntent(currentY) {
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        
+        // Wenn sich die Scroll-Position ändert, ist es ein Scroll nicht Pull
+        if (Math.abs(scrollTop - lastScrollTop) > 2) {
+            hasScrolled = true;
+            return true;
+        }
+        lastScrollTop = scrollTop;
+        return false;
+    }
+    
     document.addEventListener('touchstart', (e) => {
-        // Nur bei wirklich oberster Position
-        if (window.scrollY <= config.scrollTolerance) {
+        // Reset
+        hasScrolled = false;
+        lastScrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        
+        // Nur bei wirklich oberster Position UND nicht beim Scrollen
+        if (isAtTop() && !hasScrolled) {
             startY = e.touches[0].clientY;
             pullStartTime = Date.now();
-            lastScrollY = window.scrollY;
             isPulling = true;
+            
+            // Überwache Scroll-Aktivität
+            clearTimeout(scrollDetectionTimer);
+            scrollDetectionTimer = setTimeout(() => {
+                if (!isAtTop()) {
+                    isPulling = false;
+                    pullElement.classList.remove('visible', 'refreshing');
+                }
+            }, 100);
         }
-    });
+    }, { passive: true });
     
     document.addEventListener('touchmove', (e) => {
         if (!isPulling) return;
         
-        // Abbrechen wenn gescrollt wurde
-        if (window.scrollY > config.scrollTolerance) {
+        // Prüfe auf Scroll-Intent
+        if (detectScrollIntent() || !isAtTop()) {
             isPulling = false;
             pullElement.classList.remove('visible', 'refreshing');
             return;
@@ -1176,21 +1263,35 @@ function setupPullToRefresh() {
         const currentY = e.touches[0].clientY;
         const diff = currentY - startY;
         const duration = Date.now() - pullStartTime;
+        const velocity = diff / duration;
         
-        // Nur bei ausreichendem Abstand und Dauer
-        if (diff > config.minDistance && duration > config.minDuration && window.scrollY <= config.scrollTolerance) {
+        // Verhindere zu schnelle Gesten (Scroll-Intent)
+        if (velocity > config.maxInitialVelocity) {
+            isPulling = false;
+            pullElement.classList.remove('visible', 'refreshing');
+            return;
+        }
+        
+        // Sehr restriktive Bedingungen
+        if (diff > config.minDistance && 
+            duration > config.minDuration && 
+            isAtTop() && 
+            !hasScrolled &&
+            velocity > config.velocityThreshold &&
+            velocity < config.maxInitialVelocity) {
+            
             pullElement.classList.add('visible');
             
-            // Refresh nur bei deutlicher Geste
+            // Trigger nur bei sehr bewusster Geste
             if (diff > config.triggerDistance) {
                 pullElement.classList.add('refreshing');
-                // Verhindere weitere Touch-Events während Refresh
+                // Verhindere scroll während refresh-state
                 e.preventDefault();
             }
         } else {
             pullElement.classList.remove('visible', 'refreshing');
         }
-    });
+    }, { passive: false });
     
     document.addEventListener('touchend', (e) => {
         if (!isPulling) return;
@@ -1200,36 +1301,47 @@ function setupPullToRefresh() {
         const totalDistance = finalY - startY;
         const velocity = totalDistance / duration;
         
-        // Refresh nur bei klarer Absicht
+        // Sehr strenge Bedingungen für Refresh
         if (pullElement.classList.contains('refreshing') && 
             duration > config.minDuration && 
             velocity > config.velocityThreshold &&
-            window.scrollY <= config.scrollTolerance) {
+            velocity < config.maxInitialVelocity &&
+            totalDistance > config.triggerDistance &&
+            isAtTop() && 
+            !hasScrolled) {
             
-            // Sanfte Verzögerung vor Reload
+            // Länger warten vor Reload
             setTimeout(() => {
                 window.location.reload();
-            }, 200);
+            }, 500);
         }
         
         // Cleanup
         pullElement.classList.remove('visible', 'refreshing');
         isPulling = false;
+        hasScrolled = false;
         startY = 0;
         pullStartTime = 0;
-    });
+        clearTimeout(scrollDetectionTimer);
+    }, { passive: true });
     
-    // Zusätzlich: Abbrechen bei Scroll-Events
+    // Robuste Scroll-Überwachung
+    let scrollTimeout;
     document.addEventListener('scroll', () => {
-        if (isPulling && window.scrollY > config.scrollTolerance) {
-            pullElement.classList.remove('visible', 'refreshing');
-            isPulling = false;
-        }
-    });
+        clearTimeout(scrollTimeout);
+        scrollTimeout = setTimeout(() => {
+            if (isPulling && !isAtTop()) {
+                pullElement.classList.remove('visible', 'refreshing');
+                isPulling = false;
+                hasScrolled = true;
+            }
+        }, 50);
+    }, { passive: true });
     
-    // Touch-Cancel Event für Robustheit
+    // Touch-Cancel für bessere Robustheit
     document.addEventListener('touchcancel', () => {
         pullElement.classList.remove('visible', 'refreshing');
         isPulling = false;
-    });
+        hasScrolled = false;
+    }, { passive: true });
 }
