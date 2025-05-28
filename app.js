@@ -1,4 +1,4 @@
-// ===== Sauen Behandlung App - Mobile-Optimierte JavaScript =====
+// ===== Sauen Behandlung App - Complete JavaScript with Timeline & Reminder =====
 
 // Import modules
 import { DatabaseManager } from './modules/database.js';
@@ -179,6 +179,17 @@ document.addEventListener('DOMContentLoaded', async function() {
         
         // Check for offline/online status
         updateOnlineStatus();
+        
+        // Add timeline animations
+        addTimelineAnimations();
+        
+        // Add reminder styles
+        addReminderStyles();
+        
+        // Check for open treatments after everything is loaded
+        setTimeout(() => {
+            checkOpenTreatments();
+        }, 1000);
         
     } catch (error) {
         console.error('Initialization error:', error);
@@ -516,7 +527,7 @@ function showTab(tabId) {
     }
 }
 
-// ===== MOBILE-OPTIMIERTE Treatment Management =====
+// ===== Treatment Management =====
 async function loadTreatments() {
     try {
         const treatments = await db.getAllTreatments();
@@ -560,7 +571,7 @@ async function loadTreatments() {
     }
 }
 
-// ===== MOBILE-OPTIMIERTE createTreatmentElement =====
+// ===== EXPANDABLE TIMELINE createTreatmentElement =====
 function createTreatmentElement(treatment) {
     const item = document.createElement('div');
     item.className = 'treatment-item simplified';
@@ -643,7 +654,7 @@ function createTreatmentElement(treatment) {
     }[treatment.status] || treatment.status;
     
     // Create timeline HTML for multiple treatments
-    const timelineHTML = hasMultipleTreatments ? createTimelineHTML(treatments) : '';
+    const timelineHTML = hasMultipleTreatments ? createTimelineHTML(treatments, treatment.id) : '';
     
     // Expand/Collapse button for multiple treatments
     const expandButton = hasMultipleTreatments ? 
@@ -706,8 +717,8 @@ function createTreatmentElement(treatment) {
     return item;
 }
 
-// Neue Funktion: Timeline HTML erstellen
-function createTimelineHTML(treatments) {
+// ===== Timeline Functions =====
+function createTimelineHTML(treatments, treatmentId) {
     const timelineItems = treatments.map((treatment, index) => {
         const treatmentDate = new Date(treatment.date).toLocaleDateString('de-DE', {
             day: '2-digit',
@@ -757,7 +768,7 @@ function createTimelineHTML(treatments) {
     }).join('');
     
     return `
-        <div class="treatment-timeline" id="timeline-${Date.now()}" style="display: none;">
+        <div class="treatment-timeline" id="timeline-${treatmentId}" style="display: none;">
             <div class="timeline-header-section">
                 <h4 class="timeline-title">📋 Behandlungsverlauf</h4>
                 <div class="timeline-summary">${treatments.length} Behandlungen</div>
@@ -769,7 +780,7 @@ function createTimelineHTML(treatments) {
     `;
 }
 
-// Neue Funktion: Timeline Toggle
+// Timeline Toggle Function
 window.toggleTimeline = function(treatmentId) {
     const treatmentCard = document.querySelector(`[data-id="${treatmentId}"]`);
     if (!treatmentCard) return;
@@ -825,54 +836,6 @@ window.toggleTimeline = function(treatmentId) {
         }, 350);
     }
 };
-
-// Verbesserte mobile Animationen
-const timelineAnimations = `
-    @keyframes slideDown {
-        from {
-            opacity: 0;
-            max-height: 0;
-            transform: translateY(-10px);
-        }
-        to {
-            opacity: 1;
-            max-height: 500px;
-            transform: translateY(0);
-        }
-    }
-    
-    @keyframes slideUp {
-        from {
-            opacity: 1;
-            max-height: 500px;
-            transform: translateY(0);
-        }
-        to {
-            opacity: 0;
-            max-height: 0;
-            transform: translateY(-10px);
-        }
-    }
-    
-    @keyframes timelineFadeIn {
-        from {
-            opacity: 0;
-            transform: translateX(-20px);
-        }
-        to {
-            opacity: 1;
-            transform: translateX(0);
-        }
-    }
-`;
-
-// Timeline Animationen zu Stylesheet hinzufügen
-if (!document.getElementById('timeline-animations')) {
-    const timelineStyleSheet = document.createElement('style');
-    timelineStyleSheet.id = 'timeline-animations';
-    timelineStyleSheet.textContent = timelineAnimations;
-    document.head.appendChild(timelineStyleSheet);
-}
 
 // ===== Edit Treatment =====
 window.editTreatment = async function(id) {
@@ -1025,7 +988,7 @@ function newTreatment() {
     showTab('tab-form');
 }
 
-// ===== MOBILE-OPTIMIERTE Statistics =====
+// ===== Statistics =====
 function updateStatistics(treatments) {
     const today = new Date().toDateString();
     
@@ -1157,7 +1120,103 @@ async function syncData() {
     }
 }
 
-// ===== MOBILE-OPTIMIERTE Utility Functions =====
+// ===== OFFENE BEHANDLUNGEN REMINDER =====
+
+// Beim App-Start prüfen
+async function checkOpenTreatments() {
+    try {
+        const treatments = await db.getAllTreatments();
+        const openTreatments = treatments.filter(t => 
+            t.status === 'In Behandlung' || t.status === 'Nachbehandlung nötig'
+        );
+        
+        if (openTreatments.length > 0) {
+            showOpenTreatmentsReminder(openTreatments);
+        }
+        
+    } catch (error) {
+        console.error('Error checking open treatments:', error);
+    }
+}
+
+// Einfacher Reminder anzeigen
+function showOpenTreatmentsReminder(openTreatments) {
+    // Prüfe ob heute schon gezeigt wurde
+    const today = new Date().toDateString();
+    const lastShown = localStorage.getItem('reminderShownDate');
+    
+    if (lastShown === today) {
+        return; // Heute schon gezeigt
+    }
+    
+    // Erstelle einfachen Reminder Banner
+    const reminder = document.createElement('div');
+    reminder.className = 'open-treatments-reminder';
+    reminder.id = 'open-treatments-reminder';
+    
+    reminder.innerHTML = `
+        <div class="reminder-content">
+            <div class="reminder-header">
+                <span class="reminder-icon">📋</span>
+                <span class="reminder-title">Offene Behandlungen (${openTreatments.length})</span>
+                <button class="reminder-close" onclick="closeOpenTreatmentsReminder()">&times;</button>
+            </div>
+            <div class="reminder-list">
+                ${openTreatments.map(t => `
+                    <div class="reminder-item">
+                        <span class="reminder-pig">🐷</span>
+                        <span class="reminder-sau">${t.sauNumber}</span>
+                        <span class="reminder-status">${t.status === 'In Behandlung' ? 'Aktiv' : 'Follow-up'}</span>
+                    </div>
+                `).join('')}
+            </div>
+            <div class="reminder-actions">
+                <button class="btn btn-primary" onclick="goToTreatmentsList()">Zur Liste</button>
+                <button class="btn btn-secondary" onclick="closeOpenTreatmentsReminder()">OK</button>
+            </div>
+        </div>
+    `;
+    
+    // Styles für den Reminder
+    reminder.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        animation: fadeIn 0.3s ease;
+    `;
+    
+    document.body.appendChild(reminder);
+    
+    // Speichere dass heute gezeigt wurde
+    localStorage.setItem('reminderShownDate', today);
+}
+
+// Reminder schließen
+window.closeOpenTreatmentsReminder = function() {
+    const reminder = document.getElementById('open-treatments-reminder');
+    if (reminder) {
+        reminder.style.animation = 'fadeOut 0.3s ease';
+        setTimeout(() => {
+            reminder.remove();
+        }, 300);
+    }
+};
+
+// Zur Behandlungsliste gehen
+window.goToTreatmentsList = function() {
+    closeOpenTreatmentsReminder();
+    showTab('tab-list');
+};
+
+// ===== Utility Functions =====
 function showNotification(message, type = 'info') {
     // Entferne existierende Notifications
     const existingNotifications = document.querySelectorAll('.notification');
@@ -1195,7 +1254,7 @@ function showNotification(message, type = 'info') {
     setTimeout(() => {
         notification.style.animation = 'slideUp 0.3s ease';
         setTimeout(() => notification.remove(), 300);
-    }, 2000); // Kürzere Anzeigezeit für mobile
+    }, 2000);
 }
 
 function hideLoadingScreen() {
@@ -1285,6 +1344,7 @@ function showDebugModal() {
                     <button class="btn btn-secondary" onclick="clearAllCaches()" style="margin: 5px;">Caches löschen</button>
                     <button class="btn btn-secondary" onclick="updateServiceWorker()" style="margin: 5px;">SW aktualisieren</button>
                     <button class="btn btn-secondary" onclick="togglePullToRefresh()" style="margin: 5px;">PTR umschalten</button>
+                    <button class="btn btn-secondary" onclick="debugCheckOpenTreatments()" style="margin: 5px;">Reminder testen</button>
                 </div>
             </div>
         </div>
@@ -1407,6 +1467,13 @@ window.togglePullToRefresh = function() {
     }
 };
 
+// Debug function for testing reminder
+window.debugCheckOpenTreatments = function() {
+    localStorage.removeItem('reminderShownDate'); // Reset
+    checkOpenTreatments();
+    showNotification('Reminder Test gestartet', 'info');
+};
+
 // ===== Debug Functions für Konsole =====
 window.debugServiceWorker = async function() {
     if (!('serviceWorker' in navigator)) {
@@ -1440,11 +1507,241 @@ window.debugServiceWorker = async function() {
     }
 };
 
-// Füge Debug-Info zur Konsole hinzu
-console.log('🐷 Mobile Sauen App geladen!');
-console.log('Debug: debugServiceWorker() für Cache-Info');
+// ===== Styles hinzufügen =====
+function addTimelineAnimations() {
+    if (document.getElementById('timeline-animations')) return;
+    
+    const timelineAnimations = `
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                max-height: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                max-height: 500px;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 1;
+                max-height: 500px;
+                transform: translateY(0);
+            }
+            to {
+                opacity: 0;
+                max-height: 0;
+                transform: translateY(-10px);
+            }
+        }
+        
+        @keyframes timelineFadeIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+    `;
+    
+    const timelineStyleSheet = document.createElement('style');
+    timelineStyleSheet.id = 'timeline-animations';
+    timelineStyleSheet.textContent = timelineAnimations;
+    document.head.appendChild(timelineStyleSheet);
+}
 
-// ===== MOBILE-OPTIMIERTE Pull to Refresh =====
+function addReminderStyles() {
+    if (document.getElementById('reminder-styles')) return;
+    
+    const reminderStyles = `
+        .reminder-content {
+            background: white;
+            border-radius: 12px;
+            max-width: 90vw;
+            width: 400px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            animation: slideUp 0.3s ease;
+        }
+
+        .reminder-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            border-bottom: 1px solid #e5e7eb;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .reminder-icon {
+            font-size: 20px;
+        }
+
+        .reminder-title {
+            flex: 1;
+            margin-left: 12px;
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .reminder-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .reminder-close:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .reminder-list {
+            padding: 16px 20px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .reminder-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .reminder-item:last-child {
+            border-bottom: none;
+        }
+
+        .reminder-pig {
+            font-size: 18px;
+        }
+
+        .reminder-sau {
+            font-weight: 600;
+            color: #374151;
+            flex: 1;
+        }
+
+        .reminder-status {
+            background: #667eea;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .reminder-actions {
+            padding: 16px 20px;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            gap: 12px;
+            background: #f9fafb;
+            border-radius: 0 0 12px 12px;
+        }
+
+        .reminder-actions .btn {
+            flex: 1;
+            margin: 0;
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+
+        @keyframes slideUp {
+            from { 
+                opacity: 0; 
+                transform: translateY(30px); 
+            }
+            to { 
+                opacity: 1; 
+                transform: translateY(0); 
+            }
+        }
+
+        /* Mobile Optimierung */
+        @media (max-width: 480px) {
+            .reminder-content {
+                width: 95vw;
+                margin: 10px;
+            }
+            
+            .reminder-header {
+                padding: 12px 16px;
+            }
+            
+            .reminder-title {
+                font-size: 14px;
+            }
+            
+            .reminder-list {
+                padding: 12px 16px;
+            }
+            
+            .reminder-item {
+                padding: 6px 0;
+            }
+            
+            .reminder-pig {
+                font-size: 16px;
+            }
+            
+            .reminder-sau {
+                font-size: 14px;
+            }
+            
+            .reminder-status {
+                font-size: 10px;
+                padding: 1px 6px;
+            }
+            
+            .reminder-actions {
+                padding: 12px 16px;
+                flex-direction: column;
+            }
+            
+            .reminder-actions .btn {
+                padding: 10px;
+            }
+        }
+    `;
+    
+    const reminderStyleSheet = document.createElement('style');
+    reminderStyleSheet.id = 'reminder-styles';
+    reminderStyleSheet.textContent = reminderStyles;
+    document.head.appendChild(reminderStyleSheet);
+}
+
+// ===== Pull to Refresh =====
 function setupPullToRefresh() {
     let startY = 0;
     let isPulling = false;
@@ -1454,12 +1751,12 @@ function setupPullToRefresh() {
     
     // SEHR restriktive mobile Konfiguration
     const config = {
-        minDistance: 150,       // Noch mehr Abstand
-        triggerDistance: 250,   // Viel mehr zum Triggern
-        minDuration: 1000,      // Länger halten erforderlich
-        scrollTolerance: 15,    // Mehr Scroll-Toleranz
-        velocityThreshold: 0.3, // Niedrigere Geschwindigkeit
-        maxInitialVelocity: 1.5 // Verhindert schnelle Gesten
+        minDistance: 150,       
+        triggerDistance: 250,   
+        minDuration: 1000,      
+        scrollTolerance: 15,    
+        velocityThreshold: 0.3, 
+        maxInitialVelocity: 1.5 
     };
     
     let scrollDetectionTimer;
@@ -1592,32 +1889,8 @@ function setupPullToRefresh() {
     }, { passive: true });
 }
 
-// Mobile-spezifische Animationen hinzufügen
-const mobileAnimations = `
-    @keyframes slideDown {
-        from { 
-            transform: translateX(-50%) translateY(-20px); 
-            opacity: 0; 
-        }
-        to { 
-            transform: translateX(-50%) translateY(0); 
-            opacity: 1; 
-        }
-    }
-    
-    @keyframes slideUp {
-        from { 
-            transform: translateX(-50%) translateY(0); 
-            opacity: 1; 
-        }
-        to { 
-            transform: translateX(-50%) translateY(-20px); 
-            opacity: 0; 
-        }
-    }
-`;
-
-// Füge mobile Animationen hinzu
-const styleSheet = document.createElement('style');
-styleSheet.textContent = mobileAnimations;
-document.head.appendChild(styleSheet);
+// Füge Debug-Info zur Konsole hinzu
+console.log('🐷 Complete Sauen App geladen!');
+console.log('📋 Features: Timeline + Reminder + Mobile Optimiert');
+console.log('Debug: debugServiceWorker() für Cache-Info');
+console.log('Debug: debugCheckOpenTreatments() für Reminder-Test');
