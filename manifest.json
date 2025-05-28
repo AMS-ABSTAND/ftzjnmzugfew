@@ -1,27 +1,105 @@
 {
-    "name": "Sauen Behandlung App",
+    "name": "Sauen Behandlung App - Mobile",
     "short_name": "Sauen App",
-    "description": "Digitale Behandlungsverwaltung für Schweine",
+    "description": "Kompakte mobile Behandlungsverwaltung für Schweine",
     "start_url": "./",
     "display": "standalone",
-    "background_color": "#f5f5f5",
-    "theme_color": "#2196F3",
-    "orientation": "portrait",
+    "background_color": "#667eea",
+    "theme_color": "#667eea",
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false,
+    "scope": "./",
     "icons": [
         {
             "src": "./icon-192.png",
-            "sizes": "96x96",
+            "sizes": "72x72",
             "type": "image/png",
-            "purpose": "any maskable"
+            "purpose": "any"
         },
         {
             "src": "./icon-192.png",
             "sizes": "96x96",
             "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "./icon-192.png",
+            "sizes": "128x128",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "./icon-192.png",
+            "sizes": "144x144",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "./icon-192.png",
+            "sizes": "152x152",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "./icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
             "purpose": "any maskable"
+        },
+        {
+            "src": "./icon-192.png",
+            "sizes": "384x384",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "./icon-192.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
         }
     ],
-    "categories": ["productivity", "medical"],
+    "categories": ["productivity", "medical", "business"],
     "lang": "de-DE",
-    "dir": "ltr"
+    "dir": "ltr",
+    "screenshots": [
+        {
+            "src": "./screenshot-mobile.png",
+            "sizes": "390x844",
+            "type": "image/png",
+            "form_factor": "narrow"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "Neue Behandlung",
+            "short_name": "Neu",
+            "description": "Neue Behandlung erfassen",
+            "url": "./?tab=form",
+            "icons": [
+                {
+                    "src": "./icon-192.png",
+                    "sizes": "96x96"
+                }
+            ]
+        },
+        {
+            "name": "Liste",
+            "short_name": "Liste",
+            "description": "Behandlungen anzeigen",
+            "url": "./?tab=list",
+            "icons": [
+                {
+                    "src": "./icon-192.png",
+                    "sizes": "96x96"
+                }
+            ]
+        }
+    ],
+    "edge_side_panel": {
+        "preferred_width": 320
+    },
+    "launch_handler": {
+        "client_mode": "navigate-existing"
+    }
 }

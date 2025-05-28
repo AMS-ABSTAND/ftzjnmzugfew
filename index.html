@@ -2,13 +2,13 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#2196F3">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Sauen App">
     <meta name="mobile-web-app-capable" content="yes">
-    <meta name="description" content="Digitale Behandlungsverwaltung für Schweine">
+    <meta name="description" content="Kompakte Behandlungsverwaltung für Schweine">
     
     <!-- PWA Manifest -->
     <link rel="manifest" href="./manifest.json">
@@ -23,34 +23,34 @@
     <!-- Styles -->
     <link rel="stylesheet" href="./styles.css">
     
-    <title>Sauen Behandlung</title>
+    <title>Sauen App</title>
 </head>
 <body>
     <!-- Loading Screen -->
     <div class="loading-screen" id="loading-screen">
         <div class="loading-icon">🐷</div>
-        <div class="loading-text">Sauen App wird geladen...</div>
+        <div class="loading-text">Lädt...</div>
     </div>
     
     <!-- Offline Indicator -->
     <div class="offline-indicator" id="offline-indicator">
-        Sie sind offline - Änderungen werden lokal gespeichert
+        📱 Offline - Änderungen lokal gespeichert
     </div>
     
     <!-- Sync Status -->
     <div class="sync-status" id="sync-status">
         <span class="sync-icon">🔄</span>
-        <span class="sync-text">Synchronisiere...</span>
+        <span class="sync-text">Sync...</span>
     </div>
     
     <!-- Header -->
     <header class="header">
-        <h1>Sauen Behandlung</h1>
+        <h1>🐷 Sauen App</h1>
         <div class="header-actions">
-            <button class="header-action" id="debug-button" title="Debug Info" style="display: none;">
+            <button class="header-action" id="debug-button" title="Debug" style="display: none;">
                 🔧
             </button>
-            <button class="header-action" id="sync-button" title="Synchronisieren">
+            <button class="header-action" id="sync-button" title="Sync">
                 <span class="sync-icon">🔄</span>
             </button>
         </div>
@@ -62,23 +62,23 @@
         <div id="tab-form" class="tab active">
             <div class="container">
                 <div class="card">
-                    <div class="card-title" id="form-title">Neue Behandlung erfassen</div>
+                    <div class="card-title" id="form-title">Neue Behandlung</div>
                     
-                    <!-- Template Section -->
+                    <!-- Kompakte Template Section -->
                     <div class="template-section">
-                        <div class="template-title">Vorlage verwenden:</div>
+                        <div class="template-title">Vorlage:</div>
                         <div class="template-buttons">
-                            <button class="template-btn" data-template="dz-wz">Behandlungsplan DZ + WZ</button>
-                            <button class="template-btn" data-template="ferkel">Behandlungsplan Ferkel</button>
+                            <button class="template-btn" data-template="dz-wz">DZ + WZ</button>
+                            <button class="template-btn" data-template="ferkel">Ferkel</button>
                         </div>
                     </div>
                     
-                    <!-- Quick Select -->
+                    <!-- Kompakte Quick Select -->
                     <div class="form-group">
-                        <label for="template-select">Schnellauswahl Behandlung:</label>
+                        <label for="template-select">Schnellauswahl:</label>
                         <select id="template-select">
-                            <option value="">-- Bitte wählen --</option>
-                            <optgroup label="Sauen (DZ + WZ)">
+                            <option value="">-- Wählen --</option>
+                            <optgroup label="Sauen">
                                 <option value="lahmheit-altsau">Lahmheit - Altsau</option>
                                 <option value="lahmheit-jungsau">Lahmheit - Jungsau</option>
                                 <option value="gelähmt-altsau">Gelähmt - Altsau</option>
@@ -96,13 +96,13 @@
                         </select>
                     </div>
                     
-                    <!-- Form Fields -->
+                    <!-- Kompakte Form Fields -->
                     <form id="treatment-form">
                         <input type="hidden" id="treatment-id" value="">
                         <input type="hidden" id="parent-id" value="">
                         
                         <div class="form-group">
-                            <label for="tiertyp">Tiertyp:</label>
+                            <label for="tiertyp">🐷 Tiertyp:</label>
                             <select id="tiertyp" required>
                                 <option value="Altsau">Altsau</option>
                                 <option value="Jungsau">Jungsau</option>
@@ -111,58 +111,58 @@
                         </div>
                         
                         <div class="form-group">
-                            <label for="sauNumber">Sau-Nr./Ohrmarke:</label>
+                            <label for="sauNumber">🏷️ Sau-Nr.:</label>
                             <input type="text" id="sauNumber" placeholder="z.B. 2023-45" required>
                         </div>
                         
                         <div class="form-group">
-                            <label for="treatmentDate">Behandlungsdatum:</label>
+                            <label for="treatmentDate">📅 Datum:</label>
                             <input type="date" id="treatmentDate" required>
                         </div>
                         
                         <div class="form-group">
-                            <label for="diagnosis">Diagnose/Grund:</label>
+                            <label for="diagnosis">🔍 Diagnose:</label>
                             <input type="text" id="diagnosis" placeholder="z.B. Lahmheit" required>
                         </div>
                         
                         <div class="form-group">
-                            <label for="medication">Medikament/Behandlung:</label>
+                            <label for="medication">💊 Medikament:</label>
                             <input type="text" id="medication" placeholder="z.B. Procapen">
                         </div>
                         
                         <div class="form-group">
-                            <label for="dosage">Dosierung:</label>
+                            <label for="dosage">⚖️ Dosierung:</label>
                             <input type="text" id="dosage" placeholder="z.B. 15ml">
                         </div>
                         
                         <div class="form-group">
-                            <label for="administrationMethod">Verabreichungsart:</label>
+                            <label for="administrationMethod">💉 Art:</label>
                             <select id="administrationMethod">
-                                <option value="i.m.">i.m. (intramuskulär)</option>
-                                <option value="s.c.">s.c. (subkutan)</option>
-                                <option value="i.v.">i.v. (intravenös)</option>
+                                <option value="i.m.">i.m.</option>
+                                <option value="s.c.">s.c.</option>
+                                <option value="i.v.">i.v.</option>
                                 <option value="oral">oral</option>
                                 <option value="lokal">lokal</option>
                             </select>
                         </div>
                         
                         <div class="form-group">
-                            <label for="person">Behandelnde Person:</label>
+                            <label for="person">👤 Person:</label>
                             <input type="text" id="person" placeholder="Name/Kürzel">
                         </div>
                         
                         <div class="form-group">
-                            <label for="treatment-duration">Behandlungsdauer (Tage):</label>
+                            <label for="treatment-duration">⏱️ Dauer (Tage):</label>
                             <input type="number" id="treatment-duration" placeholder="z.B. 3" min="1">
                         </div>
                         
                         <div class="form-group">
-                            <label for="waitingPeriod">Wartezeit (Tage):</label>
+                            <label for="waitingPeriod">⏳ Wartezeit (Tage):</label>
                             <input type="number" id="waitingPeriod" placeholder="z.B. 7" min="0">
                         </div>
                         
                         <div class="form-group">
-                            <label for="status">Status:</label>
+                            <label for="status">📊 Status:</label>
                             <select id="status">
                                 <option value="In Behandlung">In Behandlung</option>
                                 <option value="Abgeschlossen">Abgeschlossen</option>
@@ -172,37 +172,37 @@
                         </div>
                         
                         <div class="form-group">
-                            <label for="notes">Bemerkungen:</label>
-                            <textarea id="notes" rows="3" placeholder="Zusätzliche Notizen"></textarea>
+                            <label for="notes">📝 Notizen:</label>
+                            <textarea id="notes" rows="2" placeholder="Zusätzliche Notizen"></textarea>
                         </div>
                         
-                        <!-- Action Buttons -->
+                        <!-- Kompakte Action Buttons -->
                         <div class="form-actions">
                             <button type="submit" id="save-btn" class="btn btn-primary">
-                                Behandlung speichern
+                                💾 Speichern
                             </button>
                             
                             <div id="edit-buttons" style="display: none;">
                                 <button type="button" class="btn btn-secondary" id="cancel-edit">
-                                    Abbrechen
+                                    ❌ Abbrechen
                                 </button>
                                 <button type="button" class="btn btn-danger" id="delete-treatment">
-                                    Behandlung löschen
+                                    🗑️ Löschen
                                 </button>
                             </div>
                             
                             <div id="new-buttons">
                                 <button type="button" class="btn btn-secondary" id="clear-form">
-                                    Formular zurücksetzen
+                                    🔄 Zurücksetzen
                                 </button>
                             </div>
                         </div>
                     </form>
                 </div>
                 
-                <!-- Template Cards -->
+                <!-- Kompakte Template Cards -->
                 <div id="template-dz-wz" class="card template-card" style="display: none;">
-                    <div class="card-title">Behandlungsplan DZ + WZ</div>
+                    <div class="card-title">Plan DZ + WZ</div>
                     <table class="treatment-table">
                         <thead>
                             <tr>
@@ -225,47 +225,37 @@
                         </tbody>
                     </table>
                     <div class="treatment-duration">
-                        <strong>Dauer der Anwendung:</strong>
-                        <div class="duration-item">Procapen: 3 Tage</div>
-                        <div class="duration-item">Dexatat: 2 Tage</div>
+                        <strong>Dauer:</strong>
+                        <div class="duration-item">Procapen: 3T</div>
+                        <div class="duration-item">Dexatat: 2T</div>
                     </div>
                     <button class="btn btn-secondary close-template">Schließen</button>
                 </div>
                 
                 <div id="template-ferkel" class="card template-card" style="display: none;">
-                    <div class="card-title">Behandlungsplan Ferkel</div>
+                    <div class="card-title">Plan Ferkel</div>
                     <table class="treatment-table">
                         <thead>
                             <tr>
-                                <th rowspan="2">Grund</th>
-                                <th colspan="4">Woche</th>
-                            </tr>
-                            <tr>
-                                <th>1. Woche</th>
-                                <th>2. Woche</th>
-                                <th>3. Woche</th>
-                                <th>4. Woche</th>
+                                <th>Grund</th>
+                                <th>1.W</th>
+                                <th>2.W</th>
+                                <th>3.W</th>
+                                <th>4.W</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
-                                <td rowspan="2">Lahmheit + liegt auf der Seite</td>
-                                <td>0,6ml Vertimoxin</td>
-                                <td>0,7ml Vertimoxin</td>
-                                <td>0,8ml Vertimoxin</td>
-                                <td>0,9ml Vertimoxin</td>
-                            </tr>
-                            <tr>
-                                <td>0,6ml Dexatat</td>
-                                <td>0,7ml Dexatat</td>
-                                <td>0,8ml Dexatat</td>
-                                <td>0,9ml Dexatat</td>
+                                <td>Lahmheit</td>
+                                <td>0,6ml</td>
+                                <td>0,7ml</td>
+                                <td>0,8ml</td>
+                                <td>0,9ml</td>
                             </tr>
                         </tbody>
                     </table>
                     <div class="treatment-duration">
-                        <strong>Dauer der Anwendung:</strong>
-                        <div class="duration-item">Vertimoxin: 2 Tage</div>
+                        <strong>Dauer:</strong> Vertimoxin 2T
                     </div>                    
                     <button class="btn btn-secondary close-template">Schließen</button>
                 </div>
@@ -275,7 +265,7 @@
         <!-- Listentab -->
         <div id="tab-list" class="tab">
             <div class="container">
-                <!-- Statistics -->
+                <!-- Kompakte Statistics -->
                 <div class="stats-section">
                     <div class="stat-card">
                         <div class="stat-number" id="active-count">0</div>
@@ -287,48 +277,48 @@
                     </div>
                     <div class="stat-card">
                         <div class="stat-number" id="total-count">0</div>
-                        <div class="stat-label">Gesamt</div>
+                        <div class="stat-label">Total</div>
                     </div>
                 </div>
                 
-                <!-- Export Actions -->
+                <!-- Kompakte Export Actions -->
                 <div class="export-section">
                     <button class="btn btn-secondary" id="export-csv">
-                        📄 Als CSV exportieren
+                        📄 CSV
                     </button>
                     <button class="btn btn-secondary" id="export-json">
-                        📊 Als JSON exportieren
+                        📊 JSON
                     </button>
                 </div>
                 
                 <!-- Treatment List Container -->
                 <div id="treatment-list-container" class="treatment-list-container">
                     <div id="treatment-list" class="treatment-list">
-                        <!-- Virtual scrolling content -->
+                        <!-- Treatment items here -->
                     </div>
                 </div>
             </div>
         </div>
         
-        <!-- Suchtab -->
+        <!-- Kompakter Suchtab -->
         <div id="tab-search" class="tab">
             <div class="container">
                 <div class="card">
-                    <div class="card-title">Behandlung suchen</div>
+                    <div class="card-title">🔍 Suche</div>
                     
-                    <!-- Search Form -->
+                    <!-- Kompakte Search Form -->
                     <div class="search-form">
                         <div class="form-group">
                             <label for="searchInput">Suchbegriff:</label>
-                            <input type="text" id="searchInput" placeholder="Sau-Nummer, Diagnose, Medikament...">
+                            <input type="text" id="searchInput" placeholder="Sau-Nr., Diagnose...">
                         </div>
                         
-                        <!-- Advanced Filters -->
+                        <!-- Kompakte Advanced Filters -->
                         <div class="advanced-filters">
-                            <h4>Erweiterte Filter:</h4>
+                            <h4>⚙️ Filter:</h4>
                             
                             <div class="filter-group">
-                                <label>Datumsbereich:</label>
+                                <label>📅 Zeitraum:</label>
                                 <div class="date-range">
                                     <input type="date" id="filter-date-start" placeholder="Von">
                                     <input type="date" id="filter-date-end" placeholder="Bis">
@@ -336,7 +326,7 @@
                             </div>
                             
                             <div class="filter-group">
-                                <label>Status:</label>
+                                <label>📊 Status:</label>
                                 <div class="checkbox-group">
                                     <label class="checkbox-label">
                                         <input type="checkbox" value="In Behandlung" class="filter-status">
@@ -348,7 +338,7 @@
                                     </label>
                                     <label class="checkbox-label">
                                         <input type="checkbox" value="Nachbehandlung nötig" class="filter-status">
-                                        Nachbehandlung nötig
+                                        Nachbehandlung
                                     </label>
                                     <label class="checkbox-label">
                                         <input type="checkbox" value="Genesen" class="filter-status">
@@ -358,7 +348,7 @@
                             </div>
                             
                             <div class="filter-group">
-                                <label>Tiertyp:</label>
+                                <label>🐷 Tiertyp:</label>
                                 <div class="checkbox-group">
                                     <label class="checkbox-label">
                                         <input type="checkbox" value="Altsau" class="filter-tiertyp">
@@ -376,25 +366,25 @@
                             </div>
                         </div>
                         
-                        <button class="btn btn-primary" id="search-button">Suchen</button>
-                        <button class="btn btn-secondary" id="reset-filters">Filter zurücksetzen</button>
+                        <button class="btn btn-primary" id="search-button">🔍 Suchen</button>
+                        <button class="btn btn-secondary" id="reset-filters">🔄 Reset</button>
                     </div>
                 </div>
                 
                 <!-- Search Results -->
                 <div id="search-results" class="treatment-list">
-                    <!-- Search results will be displayed here -->
+                    <!-- Search results here -->
                 </div>
             </div>
         </div>
     </main>
     
-    <!-- Floating Action Button -->
-    <button class="fab" id="fab" title="Neue Behandlung">
+    <!-- Kompakter FAB -->
+    <button class="fab" id="fab" title="Neu">
         <span class="fab-icon">+</span>
     </button>
     
-    <!-- Bottom Navigation -->
+    <!-- Kompakte Bottom Navigation -->
     <nav class="bottom-nav">
         <button class="nav-item active" data-tab="tab-form">
             <span class="nav-icon">📝</span>
@@ -412,7 +402,7 @@
     
     <!-- Update Banner -->
     <div class="update-banner" id="update-banner">
-        <div>Neue Version verfügbar!</div>
+        <div>📱 Update verfügbar!</div>
         <button class="btn btn-success" id="update-app">Aktualisieren</button>
     </div>
     
@@ -421,28 +411,11 @@
         <span class="ptr-icon">↻</span>
     </div>
     
-    <!-- Debug Link (versteckt, nur über Geste sichtbar) -->
-    <div id="debug-link" style="
-        position: fixed;
-        bottom: 140px;
-        right: 20px;
-        background: rgba(0,0,0,0.7);
-        color: white;
-        padding: 8px 12px;
-        border-radius: 20px;
-        font-size: 12px;
-        display: none;
-        z-index: 1000;
-        cursor: pointer;
-    ">
-        🔧 Debug
-    </div>
-    
     <!-- Scripts -->
     <script src="./app.js" type="module"></script>
     
     <script>
-    // Debug-Link anzeigen bei 3x Tippen auf FAB
+    // Kompakte Debug-Funktionalität
     let tapCount = 0;
     let tapTimer;
 
@@ -450,23 +423,37 @@
         tapCount++;
         
         if (tapCount === 3) {
-            // Nach 3x Tippen Debug-Link anzeigen
-            document.getElementById('debug-link').style.display = 'block';
-            setTimeout(() => {
-                document.getElementById('debug-link').style.display = 'none';
-            }, 5000); // Nach 5 Sekunden wieder verstecken
+            // Debug nach 3x Tippen
+            if (window.debugServiceWorker) {
+                window.debugServiceWorker();
+                // Kompakte mobile Notification
+                const notification = document.createElement('div');
+                notification.textContent = '🔧 Debug in Console (F12)';
+                notification.style.cssText = `
+                    position: fixed;
+                    top: 60px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background: var(--info-color);
+                    color: white;
+                    padding: 8px 16px;
+                    border-radius: 20px;
+                    z-index: 10000;
+                    font-size: 11px;
+                    font-weight: 600;
+                `;
+                document.body.appendChild(notification);
+                setTimeout(() => notification.remove(), 2000);
+            }
             tapCount = 0;
         } else if (tapCount === 5) {
-            // 5x Tippen = Pull-to-Refresh umschalten (Geheimfunktion)
+            // Pull-to-Refresh umschalten
             const currentState = localStorage.getItem('pullToRefreshEnabled') !== 'false';
             const newState = !currentState;
             localStorage.setItem('pullToRefreshEnabled', newState.toString());
             
-            const message = newState ? 
-                '🔄 Pull-to-Refresh aktiviert' : 
-                '❌ Pull-to-Refresh deaktiviert';
+            const message = newState ? '🔄 PTR ON' : '❌ PTR OFF';
             
-            // Temporäre Benachrichtigung
             const notification = document.createElement('div');
             notification.textContent = message;
             notification.style.cssText = `
@@ -474,59 +461,49 @@
                 top: 50%;
                 left: 50%;
                 transform: translate(-50%, -50%);
-                background: rgba(0,0,0,0.8);
+                background: var(--primary-color);
                 color: white;
-                padding: 16px 24px;
-                border-radius: 12px;
+                padding: 12px 20px;
+                border-radius: 20px;
                 z-index: 10000;
-                font-weight: 500;
+                font-weight: 700;
+                font-size: 14px;
             `;
             document.body.appendChild(notification);
             
             setTimeout(() => {
                 notification.remove();
                 window.location.reload();
-            }, 2000);
+            }, 1500);
             
             tapCount = 0;
         }
         
-        // Reset nach 2 Sekunden
         clearTimeout(tapTimer);
         tapTimer = setTimeout(() => {
             tapCount = 0;
         }, 2000);
     });
 
-    // Debug-Link Funktionalität
-    document.getElementById('debug-link').addEventListener('click', function() {
-        // Versuche zuerst externe Seite
-        const debugUrl = './sw-status.html';
-        
-        fetch(debugUrl, { method: 'HEAD' })
-            .then(response => {
-                if (response.ok) {
-                    window.open(debugUrl, '_blank');
-                } else {
-                    // Fallback: Konsolen-Debug
-                    if (window.debugServiceWorker) {
-                        window.debugServiceWorker();
-                        alert('Debug-Info in der Konsole (F12 → Console)');
-                    } else {
-                        alert('Debug nicht verfügbar');
-                    }
-                }
-            })
-            .catch(() => {
-                // Fallback: Konsolen-Debug
-                if (window.debugServiceWorker) {
-                    window.debugServiceWorker();
-                    alert('Debug-Info in der Konsole (F12 → Console)');
-                } else {
-                    alert('Debug nicht verfügbar');
-                }
-            });
+    // Mobile viewport fix
+    function setViewportHeight() {
+        const vh = window.innerHeight * 0.01;
+        document.documentElement.style.setProperty('--vh', `${vh}px`);
+    }
+    
+    setViewportHeight();
+    window.addEventListener('resize', setViewportHeight);
+    window.addEventListener('orientationchange', () => {
+        setTimeout(setViewportHeight, 100);
     });
+
+    // Prevent iOS bounce
+    document.addEventListener('touchmove', function(e) {
+        if (e.target.closest('.treatment-list-container, .form-group, .search-form')) {
+            return;
+        }
+        e.preventDefault();
+    }, { passive: false });
     </script>
 </body>
 </html>

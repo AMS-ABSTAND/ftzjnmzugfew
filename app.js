@@ -490,9 +490,11 @@ async function loadTreatments() {
 
 // Ersetzen Sie die createTreatmentElement Funktion in app.js mit dieser verbesserten Version:
 
+// Ersetzen Sie die createTreatmentElement Funktion in app.js mit dieser mobile-optimierten Version:
+
 function createTreatmentElement(treatment) {
     const item = document.createElement('div');
-    item.className = 'treatment-item';
+    item.className = 'treatment-item simplified';
     item.dataset.id = treatment.id;
     
     // Determine status class
@@ -503,7 +505,7 @@ function createTreatmentElement(treatment) {
         statusClass = 'status-follow-up';
     }
     
-    // Get treatment data (support both new and old format)
+    // Get latest treatment data
     const treatments = treatment.treatments || [{
         date: treatment.treatmentDate || treatment.date,
         diagnosis: treatment.diagnosis,
@@ -517,9 +519,8 @@ function createTreatmentElement(treatment) {
     }];
     
     const latestTreatment = treatments[treatments.length - 1];
-    const firstTreatment = treatments[0];
     
-    // Calculate waiting period from latest treatment
+    // Calculate waiting period - compact version
     let waitingInfo = '';
     if (latestTreatment.waitingPeriod && latestTreatment.date) {
         const endDate = new Date(latestTreatment.date);
@@ -528,68 +529,272 @@ function createTreatmentElement(treatment) {
         const daysRemaining = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
         
         if (daysRemaining > 0) {
-            waitingInfo = `<div class="waiting-warning">⚠️ Wartezeit: noch ${daysRemaining} Tag(e)</div>`;
+            waitingInfo = `<div class="waiting-warning">⚠️ ${daysRemaining}T Wartezeit</div>`;
         }
     }
     
-    // Create treatments display
-    let treatmentsDisplay = '';
-    treatments.forEach((t, index) => {
-        const isLatest = index === treatments.length - 1;
-        const treatmentClass = isLatest ? 'current-treatment' : 'previous-treatment';
-        
-        treatmentsDisplay += `
-            <div class="${treatmentClass}">
-                <div class="treatment-date">
-                    ${index === 0 ? 'Erstbehandlung' : `Nachbehandlung ${index}`} - ${new Date(t.date).toLocaleDateString('de-DE')}
-                </div>
-                <div class="diagnosis">${t.diagnosis}</div>
-                <div class="medication"><strong>Behandlung:</strong> ${t.medication} ${t.dosage ? `(${t.dosage})` : ''}</div>
-                ${createAdditionalInfo(t)}
-            </div>
-        `;
+    // Treatment count info - more compact
+    const treatmentCountText = treatments.length > 1 ? ` (${treatments.length}x)` : '';
+    
+    // Format date more compactly
+    const formattedDate = new Date(latestTreatment.date).toLocaleDateString('de-DE', {
+        day: '2-digit',
+        month: '2-digit'
     });
     
-    // Summary text for multiple treatments
-    const summaryText = treatments.length > 1 
-        ? `Mehrfachbehandlung • ${treatments.length} Behandlungen`
-        : `Einzelbehandlung • ${new Date(latestTreatment.date).toLocaleDateString('de-DE')}`;
+    // Create compact additional details
+    const additionalDetails = [];
+    if (latestTreatment.person) additionalDetails.push(`👤${latestTreatment.person}`);
+    if (latestTreatment.duration) additionalDetails.push(`⏱️${latestTreatment.duration}T`);
+    if (latestTreatment.waitingPeriod) additionalDetails.push(`⏳${latestTreatment.waitingPeriod}T`);
+    if (latestTreatment.administrationMethod) additionalDetails.push(`💉${latestTreatment.administrationMethod}`);
+    
+    const additionalDetailsHTML = additionalDetails.length > 0 ? 
+        `<div class="additional-details">
+            ${additionalDetails.map(detail => `<span class="detail-item">${detail}</span>`).join('')}
+        </div>` : '';
+    
+    // Compact medication line
+    const medicationLine = latestTreatment.medication ? 
+        `<div class="medication-line">
+            <strong>💊</strong> ${latestTreatment.medication}${latestTreatment.dosage ? ` (${latestTreatment.dosage})` : ''}
+        </div>` : '';
+    
+    // Compact notes
+    const notesLine = latestTreatment.notes ? 
+        `<div class="notes-line">📝 ${latestTreatment.notes}</div>` : '';
+    
+    // Status text mapping for mobile
+    const statusText = {
+        'In Behandlung': 'Aktiv',
+        'Abgeschlossen': 'OK',
+        'Nachbehandlung nötig': 'Follow-up',
+        'Genesen': 'Genesen'
+    }[treatment.status] || treatment.status;
     
     item.innerHTML = `
-        <div class="treatment-header">
-            <div class="treatment-header-left">
-                <div class="pig-icon">🐷</div>
-                <div class="treatment-title">
-                    <div class="sau-number">${treatment.sauNumber}</div>
-                    <div class="tiertyp-info">${treatment.tiertyp} - ${treatments.length} Behandlung${treatments.length > 1 ? 'en' : ''}</div>
+        <div class="simple-treatment-card">
+            <div class="treatment-main-info">
+                <div class="treatment-left">
+                    <div class="pig-icon">🐷</div>
+                    <div class="treatment-basic">
+                        <div class="sau-info">
+                            <span class="sau-number">${treatment.sauNumber}</span>
+                            <span class="tiertyp">${treatment.tiertyp}${treatmentCountText}</span>
+                        </div>
+                        <div class="treatment-date">${formattedDate}</div>
+                    </div>
                 </div>
+                <div class="status-badge ${statusClass}">${statusText}</div>
             </div>
-            <div class="status-badge ${statusClass}">${treatment.status}</div>
-        </div>
-        
-        <div class="treatment-content">
-            <div class="treatment-summary">${summaryText}</div>
             
             <div class="treatment-details">
-                ${treatmentsDisplay}
+                <div class="diagnosis-line">
+                    <strong>🔍</strong> ${latestTreatment.diagnosis}
+                </div>
+                
+                ${medicationLine}
+                ${additionalDetailsHTML}
+                ${notesLine}
+                ${waitingInfo}
             </div>
             
-            ${waitingInfo}
-            
-            <div class="action-buttons">
-                <button class="action-btn edit-btn" onclick="editTreatment(${treatment.id})">Bearbeiten</button>
+            <div class="action-buttons compact">
+                <button class="action-btn edit-btn" onclick="editTreatment(${treatment.id})">
+                    ✏️
+                </button>
                 ${treatment.status !== 'Abgeschlossen' && treatment.status !== 'Genesen' ? 
-                    `<button class="action-btn follow-up-btn" onclick="createFollowUp(${treatment.id})">Nachbehandlung</button>` : ''}
+                    `<button class="action-btn follow-up-btn" onclick="createFollowUp(${treatment.id})">
+                        🔄
+                    </button>` : ''}
                 ${treatment.status === 'In Behandlung' ? 
-                    `<button class="action-btn complete-btn" onclick="changeStatus(${treatment.id}, 'Abgeschlossen')">Abschließen</button>` : ''}
+                    `<button class="action-btn complete-btn" onclick="changeStatus(${treatment.id}, 'Abgeschlossen')">
+                        ✅
+                    </button>` : ''}
             </div>
-            
-            ${treatment.history && treatment.history.length > 1 ? createHistoryHTML(treatment.history) : ''}
         </div>
     `;
     
     return item;
 }
+
+// Zusätzliche mobile Hilfsfunktionen - fügen Sie diese auch zu app.js hinzu:
+
+// Verbesserte mobile Statistics
+function updateStatistics(treatments) {
+    const today = new Date().toDateString();
+    
+    // Active treatments
+    const activeCount = treatments.filter(t => 
+        t.status === 'In Behandlung' || t.status === 'Nachbehandlung nötig'
+    ).length;
+    
+    // Today's treatments
+    const todayCount = treatments.filter(t => {
+        if (t.treatments && t.treatments.length > 0) {
+            return t.treatments.some(treatment => 
+                new Date(treatment.date).toDateString() === today
+            );
+        }
+        return new Date(t.treatmentDate || t.date).toDateString() === today;
+    }).length;
+    
+    // Total treatments
+    const totalCount = treatments.length;
+    
+    // Kompakte Anzeige
+    document.getElementById('active-count').textContent = activeCount;
+    document.getElementById('today-count').textContent = todayCount;
+    document.getElementById('total-count').textContent = totalCount;
+}
+
+// Vereinfachte mobile Notification
+function showNotification(message, type = 'info') {
+    // Entferne existierende Notifications
+    const existingNotifications = document.querySelectorAll('.notification');
+    existingNotifications.forEach(n => n.remove());
+    
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    
+    // Kürze Nachrichten für mobile
+    const shortMessage = message.length > 30 ? message.substring(0, 27) + '...' : message;
+    notification.textContent = shortMessage;
+    
+    notification.style.cssText = `
+        position: fixed;
+        top: 60px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: ${type === 'error' ? 'var(--danger-color)' : 
+                    type === 'success' ? 'var(--success-color)' : 
+                    'var(--gray-800)'};
+        color: white;
+        padding: 8px 16px;
+        border-radius: 20px;
+        z-index: 1000;
+        font-size: 12px;
+        font-weight: 600;
+        box-shadow: var(--shadow-lg);
+        animation: slideDown 0.3s ease;
+        max-width: 90vw;
+        text-align: center;
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.style.animation = 'slideUp 0.3s ease';
+        setTimeout(() => notification.remove(), 300);
+    }, 2000); // Kürzere Anzeigezeit für mobile
+}
+
+// Mobile-optimierte Template-Anwendung
+function applyTemplate() {
+    const templateId = document.getElementById('template-select').value;
+    if (templateId && TEMPLATES[templateId]) {
+        const template = TEMPLATES[templateId];
+        document.getElementById('tiertyp').value = template.tiertyp;
+        document.getElementById('diagnosis').value = template.diagnosis;
+        document.getElementById('medication').value = template.medication;
+        document.getElementById('dosage').value = template.dosage;
+        document.getElementById('treatment-duration').value = template.duration;
+        document.getElementById('administrationMethod').value = template.method;
+        
+        // Mobile feedback
+        showNotification('Vorlage angewendet', 'success');
+        
+        // Scroll to next field on mobile
+        if (window.innerWidth <= 768) {
+            setTimeout(() => {
+                document.getElementById('sauNumber').focus();
+            }, 300);
+        }
+    }
+}
+
+// Mobile-optimierte Scroll-Performance
+function optimizeScrollPerformance() {
+    const treatmentContainer = document.getElementById('treatment-list-container');
+    if (!treatmentContainer) return;
+    
+    let ticking = false;
+    
+    function updateScrollPosition() {
+        // Throttle scroll events für bessere Performance
+        ticking = false;
+    }
+    
+    treatmentContainer.addEventListener('scroll', () => {
+        if (!ticking) {
+            requestAnimationFrame(updateScrollPosition);
+            ticking = true;
+        }
+    }, { passive: true });
+}
+
+// Touch-optimierte Interaktionen
+function setupTouchOptimizations() {
+    // Verbessere Touch-Targets für mobile
+    const actionButtons = document.querySelectorAll('.action-btn');
+    actionButtons.forEach(button => {
+        button.style.minHeight = '44px'; // iOS Mindestgröße
+        button.style.minWidth = '44px';
+    });
+    
+    // Reduziere Hover-Effekte auf Touch-Geräten
+    if ('ontouchstart' in window) {
+        document.body.classList.add('touch-device');
+        // Entferne CSS :hover Effekte für Touch-Geräte
+        const style = document.createElement('style');
+        style.textContent = `
+            .touch-device .simple-treatment-card:hover {
+                transform: none;
+                box-shadow: var(--shadow-md);
+            }
+            .touch-device .action-btn:hover {
+                transform: none;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+}
+
+// Initialisiere mobile Optimierungen
+document.addEventListener('DOMContentLoaded', () => {
+    optimizeScrollPerformance();
+    setupTouchOptimizations();
+});
+
+// Mobile-spezifische Animationen
+const mobileAnimations = `
+    @keyframes slideDown {
+        from { 
+            transform: translateX(-50%) translateY(-20px); 
+            opacity: 0; 
+        }
+        to { 
+            transform: translateX(-50%) translateY(0); 
+            opacity: 1; 
+        }
+    }
+    
+    @keyframes slideUp {
+        from { 
+            transform: translateX(-50%) translateY(0); 
+            opacity: 1; 
+        }
+        to { 
+            transform: translateX(-50%) translateY(-20px); 
+            opacity: 0; 
+        }
+    }
+`;
+
+// Füge mobile Animationen hinzu
+const styleSheet = document.createElement('style');
+styleSheet.textContent = mobileAnimations;
+document.head.appendChild(styleSheet);
 
 // Neue Hilfsfunktion für zusätzliche Informationen
 function createAdditionalInfo(treatment) {
