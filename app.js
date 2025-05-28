@@ -1,4 +1,4 @@
-// ===== Sauen Behandlung App - Main JavaScript =====
+// ===== Sauen Behandlung App - Mobile-Optimierte JavaScript =====
 
 // Import modules
 import { DatabaseManager } from './modules/database.js';
@@ -10,7 +10,6 @@ import { ServiceWorkerManager } from './modules/serviceWorker.js';
 
 // ===== Global Variables =====
 let db;
-// let virtualScroller; // Entfernt - normales Rendering verwenden
 let advancedSearch;
 let dataExporter;
 let syncManager;
@@ -118,23 +117,14 @@ document.addEventListener('DOMContentLoaded', async function() {
         db = new DatabaseManager();
         await db.init();
         
-        // Initialize modules - Vereinfacht ohne Virtual Scroller
-        // virtualScroller = new VirtualScroller(
-        //     document.getElementById('treatment-list'),
-        //     100, // Erhöhte Item-Höhe für besseres Scrolling
-        //     (item) => createTreatmentElement(item)
-        // );
-        
+        // Initialize modules
         advancedSearch = new AdvancedSearch();
         dataExporter = new DataExporter();
         syncManager = new SyncManager();
         
-        // Enhance virtual scroller for better mobile experience
-        // enhanceVirtualScroller(); // Entfernt - verursachte Scroll-Probleme
-        
         // Initialize service worker (graceful fallback if it fails)
         const swManager = new ServiceWorkerManager();
-        window.swManager = swManager; // Global verfügbar machen
+        window.swManager = swManager;
         try {
             await swManager.register();
             
@@ -148,7 +138,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 navigator.serviceWorker.addEventListener('message', (event) => {
                     if (event.data && event.data.type === 'SYNC_COMPLETE') {
                         if (event.data.success) {
-                            showNotification('Synchronisation im Hintergrund erfolgreich!', 'success');
+                            showNotification('Sync OK!', 'success');
                         } else {
                             console.log('Background sync failed:', event.data.error);
                         }
@@ -156,20 +146,22 @@ document.addEventListener('DOMContentLoaded', async function() {
                 });
             }
         } catch (error) {
-            console.log('Service Worker initialization failed, but app continues normally:', error);
+            console.log('Service Worker init failed, but app continues:', error);
         }
         
         // Set up event listeners
         setupEventListeners();
         
-        // Initialize pull-to-refresh (mit Einstellungen)
+        // Initialize mobile optimizations
+        setupMobileOptimizations();
+        
+        // Initialize pull-to-refresh
         const pullToRefreshEnabled = localStorage.getItem('pullToRefreshEnabled') !== 'false';
         if (pullToRefreshEnabled) {
             setupPullToRefresh();
-            console.log('🔄 Pull-to-Refresh aktiviert (sehr konservativ) - 5x FAB zum Deaktivieren');
+            console.log('🔄 Pull-to-Refresh aktiviert');
         } else {
-            console.log('❌ Pull-to-Refresh deaktiviert - 5x FAB zum Aktivieren');
-            // Verstecke Pull-to-Refresh Element
+            console.log('❌ Pull-to-Refresh deaktiviert');
             const pullElement = document.getElementById('pull-to-refresh');
             if (pullElement) {
                 pullElement.style.display = 'none';
@@ -190,9 +182,81 @@ document.addEventListener('DOMContentLoaded', async function() {
         
     } catch (error) {
         console.error('Initialization error:', error);
-        alert('Fehler beim Laden der App. Bitte neu laden.');
+        showNotification('Fehler beim Laden!', 'error');
     }
 });
+
+// ===== Mobile Optimizations Setup =====
+function setupMobileOptimizations() {
+    // Mobile viewport optimization
+    setViewportHeight();
+    window.addEventListener('resize', setViewportHeight);
+    window.addEventListener('orientationchange', () => {
+        setTimeout(setViewportHeight, 100);
+    });
+    
+    // Touch optimizations
+    setupTouchOptimizations();
+    
+    // Scroll performance
+    optimizeScrollPerformance();
+    
+    // Prevent iOS bounce
+    document.addEventListener('touchmove', function(e) {
+        if (e.target.closest('.treatment-list-container, .form-group, .search-form')) {
+            return;
+        }
+        e.preventDefault();
+    }, { passive: false });
+}
+
+function setViewportHeight() {
+    const vh = window.innerHeight * 0.01;
+    document.documentElement.style.setProperty('--vh', `${vh}px`);
+}
+
+function setupTouchOptimizations() {
+    // Verbessere Touch-Targets für mobile
+    const actionButtons = document.querySelectorAll('.action-btn');
+    actionButtons.forEach(button => {
+        button.style.minHeight = '44px';
+        button.style.minWidth = '44px';
+    });
+    
+    // Reduziere Hover-Effekte auf Touch-Geräten
+    if ('ontouchstart' in window) {
+        document.body.classList.add('touch-device');
+        const style = document.createElement('style');
+        style.textContent = `
+            .touch-device .simple-treatment-card:hover {
+                transform: none;
+                box-shadow: var(--shadow-md);
+            }
+            .touch-device .action-btn:hover {
+                transform: none;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+}
+
+function optimizeScrollPerformance() {
+    const treatmentContainer = document.getElementById('treatment-list-container');
+    if (!treatmentContainer) return;
+    
+    let ticking = false;
+    
+    function updateScrollPosition() {
+        ticking = false;
+    }
+    
+    treatmentContainer.addEventListener('scroll', () => {
+        if (!ticking) {
+            requestAnimationFrame(updateScrollPosition);
+            ticking = true;
+        }
+    }, { passive: true });
+}
 
 // ===== Event Listeners Setup =====
 function setupEventListeners() {
@@ -257,8 +321,19 @@ function setupEventListeners() {
     window.addEventListener('online', updateOnlineStatus);
     window.addEventListener('offline', updateOnlineStatus);
     
-    // Pull to refresh
-    setupPullToRefresh();
+    // Mobile-specific checkbox handling
+    setupMobileCheckboxes();
+}
+
+function setupMobileCheckboxes() {
+    document.querySelectorAll('.checkbox-label').forEach(label => {
+        label.addEventListener('click', (e) => {
+            e.preventDefault();
+            const checkbox = label.querySelector('input[type="checkbox"]');
+            checkbox.checked = !checkbox.checked;
+            label.classList.toggle('checked', checkbox.checked);
+        });
+    });
 }
 
 // ===== Form Handling =====
@@ -279,29 +354,23 @@ async function handleFormSubmit(e) {
     
     try {
         if (isFollowUpMode && followUpParentId) {
-            // Add follow-up treatment to existing record
             await addFollowUpTreatment(followUpParentId, newTreatmentData);
-            showNotification('Nachbehandlung hinzugefügt!');
+            showNotification('Nachbehandlung hinzugefügt!', 'success');
         } else if (isEditMode) {
-            // Update existing treatment
             const treatment = await db.getTreatmentById(editingId);
             if (treatment) {
-                // Update the main treatment data
                 treatment.tiertyp = document.getElementById('tiertyp').value;
                 treatment.sauNumber = document.getElementById('sauNumber').value;
                 treatment.status = document.getElementById('status').value;
                 treatment.lastModified = new Date().toISOString();
                 treatment.synced = false;
                 
-                // Update the primary treatment in the treatments array
                 if (treatment.treatments && treatment.treatments.length > 0) {
                     treatment.treatments[0] = { ...treatment.treatments[0], ...newTreatmentData };
                 } else {
-                    // Backwards compatibility
                     Object.assign(treatment, newTreatmentData);
                 }
                 
-                // Update history
                 treatment.history = treatment.history || [];
                 treatment.history.push({
                     date: new Date().toISOString(),
@@ -310,16 +379,15 @@ async function handleFormSubmit(e) {
                 });
                 
                 await db.updateTreatment(treatment);
-                showNotification('Behandlung aktualisiert!');
+                showNotification('Aktualisiert!', 'success');
             }
         } else {
-            // Create new treatment record
             const treatment = {
                 id: Date.now(),
                 tiertyp: document.getElementById('tiertyp').value,
                 sauNumber: document.getElementById('sauNumber').value,
                 status: document.getElementById('status').value,
-                treatments: [newTreatmentData], // Array of treatments
+                treatments: [newTreatmentData],
                 history: [{
                     date: new Date().toISOString(),
                     action: 'Behandlung erstellt',
@@ -330,7 +398,7 @@ async function handleFormSubmit(e) {
             };
             
             await db.addTreatment(treatment);
-            showNotification('Behandlung gespeichert!');
+            showNotification('Gespeichert!', 'success');
         }
         
         clearForm();
@@ -343,7 +411,7 @@ async function handleFormSubmit(e) {
         
     } catch (error) {
         console.error('Error saving treatment:', error);
-        alert('Fehler beim Speichern der Behandlung.');
+        showNotification('Fehler beim Speichern!', 'error');
     }
 }
 
@@ -352,7 +420,6 @@ async function addFollowUpTreatment(parentId, treatmentData) {
     const parentTreatment = await db.getTreatmentById(parentId);
     
     if (parentTreatment) {
-        // Initialize treatments array if it doesn't exist (backwards compatibility)
         if (!parentTreatment.treatments) {
             parentTreatment.treatments = [{
                 date: parentTreatment.treatmentDate || parentTreatment.date,
@@ -367,15 +434,11 @@ async function addFollowUpTreatment(parentId, treatmentData) {
             }];
         }
         
-        // Add new treatment to the array
         parentTreatment.treatments.push(treatmentData);
-        
-        // Update main record
-        parentTreatment.status = 'In Behandlung'; // Reset status for follow-up
+        parentTreatment.status = 'In Behandlung';
         parentTreatment.lastModified = new Date().toISOString();
         parentTreatment.synced = false;
         
-        // Add to history
         parentTreatment.history = parentTreatment.history || [];
         parentTreatment.history.push({
             date: new Date().toISOString(),
@@ -388,7 +451,29 @@ async function addFollowUpTreatment(parentId, treatmentData) {
     }
 }
 
-
+// ===== Template Handling =====
+function applyTemplate() {
+    const templateId = document.getElementById('template-select').value;
+    if (templateId && TEMPLATES[templateId]) {
+        const template = TEMPLATES[templateId];
+        document.getElementById('tiertyp').value = template.tiertyp;
+        document.getElementById('diagnosis').value = template.diagnosis;
+        document.getElementById('medication').value = template.medication;
+        document.getElementById('dosage').value = template.dosage;
+        document.getElementById('treatment-duration').value = template.duration;
+        document.getElementById('administrationMethod').value = template.method;
+        
+        // Mobile feedback
+        showNotification('Vorlage angewendet', 'success');
+        
+        // Focus next field on mobile
+        if (window.innerWidth <= 768) {
+            setTimeout(() => {
+                document.getElementById('sauNumber').focus();
+            }, 300);
+        }
+    }
+}
 
 function showTemplateCard(templateId) {
     hideTemplateCards();
@@ -427,11 +512,11 @@ function showTab(tabId) {
     if (tabId === 'tab-list') {
         setTimeout(() => {
             loadTreatments();
-        }, 100); // Kleine Verzögerung für bessere Performance
+        }, 100);
     }
 }
 
-// ===== Treatment Management - Vereinfachtes Rendering =====
+// ===== MOBILE-OPTIMIERTE Treatment Management =====
 async function loadTreatments() {
     try {
         const treatments = await db.getAllTreatments();
@@ -442,15 +527,14 @@ async function loadTreatments() {
         // Sort by last modified date (newest first)
         treatments.sort((a, b) => new Date(b.lastModified) - new Date(a.lastModified));
         
-        // Direct rendering instead of virtual scroller
         const listContainer = document.getElementById('treatment-list');
-        listContainer.innerHTML = ''; // Clear existing content
+        listContainer.innerHTML = '';
         
         if (treatments.length === 0) {
             listContainer.innerHTML = `
                 <div style="text-align: center; padding: var(--spacing-xl); color: var(--gray-500);">
-                    <h3>🐷 Keine Behandlungen vorhanden</h3>
-                    <p>Klicken Sie auf + um eine neue Behandlung zu erfassen.</p>
+                    <h3>🐷 Keine Behandlungen</h3>
+                    <p>Klicken Sie auf + für neue Behandlung.</p>
                 </div>
             `;
             return;
@@ -476,10 +560,7 @@ async function loadTreatments() {
     }
 }
 
-// Ersetzen Sie die createTreatmentElement Funktion in app.js mit dieser verbesserten Version:
-
-// Ersetzen Sie die createTreatmentElement Funktion in app.js mit dieser mobile-optimierten Version:
-
+// ===== MOBILE-OPTIMIERTE createTreatmentElement =====
 function createTreatmentElement(treatment) {
     const item = document.createElement('div');
     item.className = 'treatment-item simplified';
@@ -550,7 +631,7 @@ function createTreatmentElement(treatment) {
     
     // Compact notes
     const notesLine = latestTreatment.notes ? 
-        `<div class="notes-line">📝 ${latestTreatment.notes}</div>` : '';
+        `<div class="notes-line">📝 ${latestTreatment.notes.length > 50 ? latestTreatment.notes.substring(0, 47) + '...' : latestTreatment.notes}</div>` : '';
     
     // Status text mapping for mobile
     const statusText = {
@@ -606,226 +687,6 @@ function createTreatmentElement(treatment) {
     return item;
 }
 
-// Zusätzliche mobile Hilfsfunktionen - fügen Sie diese auch zu app.js hinzu:
-
-// Verbesserte mobile Statistics
-function updateStatistics(treatments) {
-    const today = new Date().toDateString();
-    
-    // Active treatments
-    const activeCount = treatments.filter(t => 
-        t.status === 'In Behandlung' || t.status === 'Nachbehandlung nötig'
-    ).length;
-    
-    // Today's treatments
-    const todayCount = treatments.filter(t => {
-        if (t.treatments && t.treatments.length > 0) {
-            return t.treatments.some(treatment => 
-                new Date(treatment.date).toDateString() === today
-            );
-        }
-        return new Date(t.treatmentDate || t.date).toDateString() === today;
-    }).length;
-    
-    // Total treatments
-    const totalCount = treatments.length;
-    
-    // Kompakte Anzeige
-    document.getElementById('active-count').textContent = activeCount;
-    document.getElementById('today-count').textContent = todayCount;
-    document.getElementById('total-count').textContent = totalCount;
-}
-
-// Vereinfachte mobile Notification
-function showNotification(message, type = 'info') {
-    // Entferne existierende Notifications
-    const existingNotifications = document.querySelectorAll('.notification');
-    existingNotifications.forEach(n => n.remove());
-    
-    const notification = document.createElement('div');
-    notification.className = `notification ${type}`;
-    
-    // Kürze Nachrichten für mobile
-    const shortMessage = message.length > 30 ? message.substring(0, 27) + '...' : message;
-    notification.textContent = shortMessage;
-    
-    notification.style.cssText = `
-        position: fixed;
-        top: 60px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: ${type === 'error' ? 'var(--danger-color)' : 
-                    type === 'success' ? 'var(--success-color)' : 
-                    'var(--gray-800)'};
-        color: white;
-        padding: 8px 16px;
-        border-radius: 20px;
-        z-index: 1000;
-        font-size: 12px;
-        font-weight: 600;
-        box-shadow: var(--shadow-lg);
-        animation: slideDown 0.3s ease;
-        max-width: 90vw;
-        text-align: center;
-    `;
-    
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-        notification.style.animation = 'slideUp 0.3s ease';
-        setTimeout(() => notification.remove(), 300);
-    }, 2000); // Kürzere Anzeigezeit für mobile
-}
-
-// Mobile-optimierte Template-Anwendung
-function applyTemplate() {
-    const templateId = document.getElementById('template-select').value;
-    if (templateId && TEMPLATES[templateId]) {
-        const template = TEMPLATES[templateId];
-        document.getElementById('tiertyp').value = template.tiertyp;
-        document.getElementById('diagnosis').value = template.diagnosis;
-        document.getElementById('medication').value = template.medication;
-        document.getElementById('dosage').value = template.dosage;
-        document.getElementById('treatment-duration').value = template.duration;
-        document.getElementById('administrationMethod').value = template.method;
-        
-        // Mobile feedback
-        showNotification('Vorlage angewendet', 'success');
-        
-        // Scroll to next field on mobile
-        if (window.innerWidth <= 768) {
-            setTimeout(() => {
-                document.getElementById('sauNumber').focus();
-            }, 300);
-        }
-    }
-}
-
-// Mobile-optimierte Scroll-Performance
-function optimizeScrollPerformance() {
-    const treatmentContainer = document.getElementById('treatment-list-container');
-    if (!treatmentContainer) return;
-    
-    let ticking = false;
-    
-    function updateScrollPosition() {
-        // Throttle scroll events für bessere Performance
-        ticking = false;
-    }
-    
-    treatmentContainer.addEventListener('scroll', () => {
-        if (!ticking) {
-            requestAnimationFrame(updateScrollPosition);
-            ticking = true;
-        }
-    }, { passive: true });
-}
-
-// Touch-optimierte Interaktionen
-function setupTouchOptimizations() {
-    // Verbessere Touch-Targets für mobile
-    const actionButtons = document.querySelectorAll('.action-btn');
-    actionButtons.forEach(button => {
-        button.style.minHeight = '44px'; // iOS Mindestgröße
-        button.style.minWidth = '44px';
-    });
-    
-    // Reduziere Hover-Effekte auf Touch-Geräten
-    if ('ontouchstart' in window) {
-        document.body.classList.add('touch-device');
-        // Entferne CSS :hover Effekte für Touch-Geräte
-        const style = document.createElement('style');
-        style.textContent = `
-            .touch-device .simple-treatment-card:hover {
-                transform: none;
-                box-shadow: var(--shadow-md);
-            }
-            .touch-device .action-btn:hover {
-                transform: none;
-            }
-        `;
-        document.head.appendChild(style);
-    }
-}
-
-// Initialisiere mobile Optimierungen
-document.addEventListener('DOMContentLoaded', () => {
-    optimizeScrollPerformance();
-    setupTouchOptimizations();
-});
-
-// Mobile-spezifische Animationen
-const mobileAnimations = `
-    @keyframes slideDown {
-        from { 
-            transform: translateX(-50%) translateY(-20px); 
-            opacity: 0; 
-        }
-        to { 
-            transform: translateX(-50%) translateY(0); 
-            opacity: 1; 
-        }
-    }
-    
-    @keyframes slideUp {
-        from { 
-            transform: translateX(-50%) translateY(0); 
-            opacity: 1; 
-        }
-        to { 
-            transform: translateX(-50%) translateY(-20px); 
-            opacity: 0; 
-        }
-    }
-`;
-
-// Füge mobile Animationen hinzu
-const styleSheet = document.createElement('style');
-styleSheet.textContent = mobileAnimations;
-document.head.appendChild(styleSheet);
-
-// Neue Hilfsfunktion für zusätzliche Informationen
-function createAdditionalInfo(treatment) {
-    const items = [];
-    
-    if (treatment.person) {
-        items.push(`<div class="info-item"><div class="info-label">Behandler</div><div class="info-value">${treatment.person}</div></div>`);
-    }
-    
-    if (treatment.duration) {
-        items.push(`<div class="info-item"><div class="info-label">Dauer</div><div class="info-value">${treatment.duration} Tage</div></div>`);
-    }
-    
-    if (treatment.administrationMethod) {
-        items.push(`<div class="info-item"><div class="info-label">Verabreichung</div><div class="info-value">${treatment.administrationMethod}</div></div>`);
-    }
-    
-    if (treatment.notes) {
-        items.push(`<div class="info-item"><div class="info-label">Notizen</div><div class="info-value">${treatment.notes}</div></div>`);
-    }
-    
-    if (items.length > 0) {
-        return `<div class="additional-info">${items.join('')}</div>`;
-    }
-    
-    return '';
-}
-
-// Verbesserte History HTML-Funktion
-function createHistoryHTML(history) {
-    let html = '<div class="history-card"><div class="history-title">Verlauf</div><div class="history-timeline">';
-    
-    history.slice(-3).reverse().forEach(entry => {
-        const date = new Date(entry.date).toLocaleString('de-DE');
-        html += `<div class="history-item">${date}: ${entry.action}</div>`;
-    });
-    
-    html += '</div></div>';
-    return html;
-}
-
-
-
 // ===== Edit Treatment =====
 window.editTreatment = async function(id) {
     try {
@@ -837,10 +698,9 @@ window.editTreatment = async function(id) {
             isFollowUpMode = false;
             followUpParentId = null;
             
-            // Get the latest treatment data
             const latestTreatment = treatment.treatments && treatment.treatments.length > 0 
                 ? treatment.treatments[treatment.treatments.length - 1]
-                : treatment; // Backwards compatibility
+                : treatment;
             
             // Fill form
             document.getElementById('treatment-id').value = treatment.id;
@@ -858,8 +718,8 @@ window.editTreatment = async function(id) {
             document.getElementById('notes').value = latestTreatment.notes || '';
             
             // Update UI
-            document.getElementById('form-title').textContent = 'Behandlung bearbeiten';
-            document.getElementById('save-btn').textContent = 'Änderungen speichern';
+            document.getElementById('form-title').textContent = 'Bearbeiten';
+            document.getElementById('save-btn').textContent = '💾 Speichern';
             document.getElementById('edit-buttons').style.display = 'block';
             document.getElementById('new-buttons').style.display = 'none';
             
@@ -867,20 +727,21 @@ window.editTreatment = async function(id) {
         }
     } catch (error) {
         console.error('Error loading treatment for edit:', error);
+        showNotification('Fehler beim Laden!', 'error');
     }
 };
 
 // ===== Delete Treatment =====
 async function deleteTreatment() {
-    if (confirm('Möchten Sie diese Behandlung wirklich löschen?')) {
+    if (confirm('Behandlung wirklich löschen?')) {
         try {
             await db.deleteTreatment(editingId);
-            showNotification('Behandlung gelöscht!');
+            showNotification('Gelöscht!', 'success');
             clearForm();
             showTab('tab-list');
         } catch (error) {
             console.error('Error deleting treatment:', error);
-            alert('Fehler beim Löschen der Behandlung.');
+            showNotification('Fehler beim Löschen!', 'error');
         }
     }
 }
@@ -893,15 +754,12 @@ window.createFollowUp = async function(parentId) {
         if (parentTreatment) {
             clearForm();
             
-            // Set follow-up mode
             isFollowUpMode = true;
             followUpParentId = parentId;
             
-            // Pre-fill form with parent data
             document.getElementById('tiertyp').value = parentTreatment.tiertyp;
             document.getElementById('sauNumber').value = parentTreatment.sauNumber;
             
-            // Get original diagnosis for reference
             const originalDiagnosis = parentTreatment.treatments && parentTreatment.treatments.length > 0 
                 ? parentTreatment.treatments[0].diagnosis 
                 : parentTreatment.diagnosis;
@@ -909,12 +767,13 @@ window.createFollowUp = async function(parentId) {
             document.getElementById('diagnosis').value = `Nachbehandlung: ${originalDiagnosis}`;
             
             document.getElementById('form-title').textContent = `Nachbehandlung für ${parentTreatment.sauNumber}`;
-            document.getElementById('save-btn').textContent = 'Nachbehandlung hinzufügen';
+            document.getElementById('save-btn').textContent = '🔄 Hinzufügen';
             
             showTab('tab-form');
         }
     } catch (error) {
         console.error('Error creating follow-up:', error);
+        showNotification('Fehler bei Nachbehandlung!', 'error');
     }
 };
 
@@ -929,7 +788,6 @@ window.changeStatus = async function(id, newStatus) {
             treatment.lastModified = new Date().toISOString();
             treatment.synced = false;
             
-            // Update history
             treatment.history = treatment.history || [];
             treatment.history.push({
                 date: new Date().toISOString(),
@@ -940,10 +798,11 @@ window.changeStatus = async function(id, newStatus) {
             
             await db.updateTreatment(treatment);
             await loadTreatments();
-            showNotification('Status aktualisiert!');
+            showNotification('Status aktualisiert!', 'success');
         }
     } catch (error) {
         console.error('Error changing status:', error);
+        showNotification('Fehler bei Status!', 'error');
     }
 };
 
@@ -961,8 +820,8 @@ function clearForm() {
     document.getElementById('status').value = 'In Behandlung';
     
     // Reset UI
-    document.getElementById('form-title').textContent = 'Neue Behandlung erfassen';
-    document.getElementById('save-btn').textContent = 'Behandlung speichern';
+    document.getElementById('form-title').textContent = 'Neue Behandlung';
+    document.getElementById('save-btn').textContent = '💾 Speichern';
     document.getElementById('edit-buttons').style.display = 'none';
     document.getElementById('new-buttons').style.display = 'block';
     
@@ -979,7 +838,7 @@ function newTreatment() {
     showTab('tab-form');
 }
 
-// ===== Statistics =====
+// ===== MOBILE-OPTIMIERTE Statistics =====
 function updateStatistics(treatments) {
     const today = new Date().toDateString();
     
@@ -988,7 +847,7 @@ function updateStatistics(treatments) {
         t.status === 'In Behandlung' || t.status === 'Nachbehandlung nötig'
     ).length;
     
-    // Today's treatments (check all treatment dates)
+    // Today's treatments
     const todayCount = treatments.filter(t => {
         if (t.treatments && t.treatments.length > 0) {
             return t.treatments.some(treatment => 
@@ -1032,7 +891,7 @@ async function performSearch() {
         resultsContainer.innerHTML = '';
         
         if (results.length === 0) {
-            resultsContainer.innerHTML = '<div class="card"><p style="text-align: center; color: var(--gray-500);">Keine Ergebnisse gefunden</p></div>';
+            resultsContainer.innerHTML = '<div class="card"><p style="text-align: center; color: var(--gray-500);">Keine Ergebnisse</p></div>';
             return;
         }
         
@@ -1041,8 +900,11 @@ async function performSearch() {
             resultsContainer.appendChild(element);
         });
         
+        showNotification(`${results.length} Ergebnisse`, 'success');
+        
     } catch (error) {
         console.error('Error performing search:', error);
+        showNotification('Suchfehler!', 'error');
     }
 }
 
@@ -1055,7 +917,12 @@ function resetFilters() {
         cb.checked = false;
     });
     
+    document.querySelectorAll('.checkbox-label').forEach(label => {
+        label.classList.remove('checked');
+    });
+    
     document.getElementById('search-results').innerHTML = '';
+    showNotification('Filter zurückgesetzt', 'success');
 }
 
 // ===== Export Functions =====
@@ -1063,9 +930,10 @@ async function exportToCSV() {
     try {
         const treatments = await db.getAllTreatments();
         dataExporter.exportToCSV(treatments);
+        showNotification('CSV exportiert!', 'success');
     } catch (error) {
         console.error('Error exporting to CSV:', error);
-        alert('Fehler beim Exportieren.');
+        showNotification('Export-Fehler!', 'error');
     }
 }
 
@@ -1073,9 +941,10 @@ async function exportToJSON() {
     try {
         const treatments = await db.getAllTreatments();
         dataExporter.exportToJSON(treatments);
+        showNotification('JSON exportiert!', 'success');
     } catch (error) {
         console.error('Error exporting to JSON:', error);
-        alert('Fehler beim Exportieren.');
+        showNotification('Export-Fehler!', 'error');
     }
 }
 
@@ -1092,33 +961,46 @@ async function syncData() {
     try {
         await syncManager.syncData();
         syncStatus.classList.remove('visible');
-        showNotification('Synchronisation erfolgreich!', 'success');
+        showNotification('Sync erfolgreich!', 'success');
         await loadTreatments();
     } catch (error) {
         console.error('Sync error:', error);
         syncStatus.classList.remove('visible');
-        showNotification('Synchronisation fehlgeschlagen', 'error');
+        showNotification('Sync fehlgeschlagen', 'error');
     }
 }
 
-// ===== Utility Functions =====
+// ===== MOBILE-OPTIMIERTE Utility Functions =====
 function showNotification(message, type = 'info') {
+    // Entferne existierende Notifications
+    const existingNotifications = document.querySelectorAll('.notification');
+    existingNotifications.forEach(n => n.remove());
+    
     const notification = document.createElement('div');
     notification.className = `notification ${type}`;
-    notification.textContent = message;
+    
+    // Kürze Nachrichten für mobile
+    const shortMessage = message.length > 30 ? message.substring(0, 27) + '...' : message;
+    notification.textContent = shortMessage;
+    
     notification.style.cssText = `
         position: fixed;
-        top: 80px;
+        top: 60px;
         left: 50%;
         transform: translateX(-50%);
-        background-color: ${type === 'error' ? 'var(--danger-color)' : 
-                           type === 'success' ? 'var(--success-color)' : 
-                           'var(--gray-800)'};
+        background: ${type === 'error' ? 'var(--danger-color)' : 
+                    type === 'success' ? 'var(--success-color)' : 
+                    'var(--gray-800)'};
         color: white;
-        padding: var(--spacing-md);
-        border-radius: var(--border-radius);
+        padding: 8px 16px;
+        border-radius: 20px;
         z-index: 1000;
+        font-size: 12px;
+        font-weight: 600;
+        box-shadow: var(--shadow-lg);
         animation: slideDown 0.3s ease;
+        max-width: 90vw;
+        text-align: center;
     `;
     
     document.body.appendChild(notification);
@@ -1126,7 +1008,7 @@ function showNotification(message, type = 'info') {
     setTimeout(() => {
         notification.style.animation = 'slideUp 0.3s ease';
         setTimeout(() => notification.remove(), 300);
-    }, 3000);
+    }, 2000); // Kürzere Anzeigezeit für mobile
 }
 
 function hideLoadingScreen() {
@@ -1148,59 +1030,79 @@ function updateOnlineStatus() {
 
 // ===== Debug Functions =====
 function openDebugPage() {
-    // Versuche zuerst externe Debug-Seite zu öffnen
     const debugUrl = './sw-status.html';
     
-    // Prüfe ob die Seite existiert
     fetch(debugUrl, { method: 'HEAD' })
         .then(response => {
             if (response.ok) {
                 window.open(debugUrl, '_blank');
             } else {
-                // Fallback: Zeige Debug-Modal
                 showDebugModal();
             }
         })
         .catch(() => {
-            // Fallback: Zeige Debug-Modal  
             showDebugModal();
         });
 }
 
 function showDebugModal() {
-    // Erstelle Modal
     const modal = document.createElement('div');
     modal.className = 'debug-modal';
     modal.innerHTML = `
-        <div class="debug-modal-content">
-            <div class="debug-modal-header">
+        <div class="debug-modal-content" style="
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            max-width: 90vw;
+            max-height: 80vh;
+            overflow-y: auto;
+            z-index: 10000;
+            box-shadow: var(--shadow-xl);
+        ">
+            <div class="debug-modal-header" style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 20px;
+                border-bottom: 1px solid var(--gray-200);
+                padding-bottom: 10px;
+            ">
                 <h3>🔧 Service Worker Debug</h3>
-                <button class="debug-modal-close">&times;</button>
+                <button class="debug-modal-close" style="
+                    background: none;
+                    border: none;
+                    font-size: 24px;
+                    cursor: pointer;
+                    color: var(--gray-500);
+                ">&times;</button>
             </div>
             <div class="debug-modal-body">
-                <div class="debug-section">
+                <div class="debug-section" style="margin-bottom: 15px; padding: 10px; background: var(--gray-100); border-radius: 6px;">
                     <h4>Browser Support</h4>
                     <div id="debug-support">Prüfe...</div>
                 </div>
-                <div class="debug-section">
+                <div class="debug-section" style="margin-bottom: 15px; padding: 10px; background: var(--gray-100); border-radius: 6px;">
                     <h4>Registration Status</h4>
                     <div id="debug-registration">Prüfe...</div>
                 </div>
-                <div class="debug-section">
+                <div class="debug-section" style="margin-bottom: 15px; padding: 10px; background: var(--gray-100); border-radius: 6px;">
                     <h4>Cache Status</h4>
                     <div id="debug-cache">Prüfe...</div>
                 </div>
                 <div class="debug-section">
                     <h4>Aktionen</h4>
-                    <button class="btn btn-secondary" onclick="clearAllCaches()">Caches löschen</button>
-                    <button class="btn btn-secondary" onclick="updateServiceWorker()">SW aktualisieren</button>
-                    <button class="btn btn-secondary" onclick="togglePullToRefresh()">Pull-to-Refresh umschalten</button>
+                    <button class="btn btn-secondary" onclick="clearAllCaches()" style="margin: 5px;">Caches löschen</button>
+                    <button class="btn btn-secondary" onclick="updateServiceWorker()" style="margin: 5px;">SW aktualisieren</button>
+                    <button class="btn btn-secondary" onclick="togglePullToRefresh()" style="margin: 5px;">PTR umschalten</button>
                 </div>
             </div>
         </div>
     `;
     
-    // Styles für Modal
     modal.style.cssText = `
         position: fixed;
         top: 0;
@@ -1212,62 +1114,15 @@ function showDebugModal() {
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: var(--spacing-md);
     `;
-    
-    const content = modal.querySelector('.debug-modal-content');
-    content.style.cssText = `
-        background: white;
-        border-radius: var(--border-radius);
-        max-width: 600px;
-        width: 100%;
-        max-height: 80vh;
-        overflow-y: auto;
-        box-shadow: var(--shadow-lg);
-    `;
-    
-    const header = modal.querySelector('.debug-modal-header');
-    header.style.cssText = `
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: var(--spacing-md);
-        border-bottom: 1px solid var(--gray-200);
-    `;
-    
-    const body = modal.querySelector('.debug-modal-body');
-    body.style.cssText = `
-        padding: var(--spacing-md);
-    `;
-    
-    const sections = modal.querySelectorAll('.debug-section');
-    sections.forEach(section => {
-        section.style.cssText = `
-            margin-bottom: var(--spacing-md);
-            padding: var(--spacing-sm);
-            background: var(--gray-100);
-            border-radius: var(--border-radius-sm);
-        `;
-    });
     
     const closeBtn = modal.querySelector('.debug-modal-close');
-    closeBtn.style.cssText = `
-        background: none;
-        border: none;
-        font-size: 24px;
-        cursor: pointer;
-        color: var(--gray-500);
-    `;
-    
-    // Event Listeners
     closeBtn.onclick = () => modal.remove();
     modal.onclick = (e) => {
         if (e.target === modal) modal.remove();
     };
     
     document.body.appendChild(modal);
-    
-    // Debug-Informationen laden
     loadDebugInfo();
 }
 
@@ -1321,13 +1176,6 @@ async function loadDebugInfo() {
         cacheDiv.innerHTML = `❌ Cache Fehler: ${error.message}`;
         cacheDiv.style.color = 'var(--danger-color)';
     }
-    
-    // Pull-to-Refresh Status hinzufügen
-    const pullToRefreshEnabled = localStorage.getItem('pullToRefreshEnabled') !== 'false';
-    const statusText = pullToRefreshEnabled ? '✅ Pull-to-Refresh aktiv' : '❌ Pull-to-Refresh deaktiviert';
-    const statusColor = pullToRefreshEnabled ? 'var(--success-color)' : 'var(--warning-color)';
-    
-    cacheDiv.innerHTML += `<br><span style="color: ${statusColor}">${statusText}</span>`;
 }
 
 window.clearAllCaches = async function() {
@@ -1348,9 +1196,9 @@ window.updateServiceWorker = async function() {
         const registration = await navigator.serviceWorker.getRegistration();
         if (registration) {
             await registration.update();
-            showNotification('Service Worker Update eingeleitet!', 'success');
+            showNotification('SW Update eingeleitet!', 'success');
         } else {
-            showNotification('Kein Service Worker registriert', 'error');
+            showNotification('Kein SW registriert', 'error');
         }
     } catch (error) {
         showNotification('Update Fehler: ' + error.message, 'error');
@@ -1365,51 +1213,14 @@ window.togglePullToRefresh = function() {
     
     if (newState) {
         setupPullToRefresh();
-        showNotification('Pull-to-Refresh aktiviert', 'success');
+        showNotification('PTR aktiviert', 'success');
     } else {
-        // Remove event listeners by reloading (simplest approach)
-        showNotification('Pull-to-Refresh deaktiviert. Seite wird neu geladen...', 'info');
+        showNotification('PTR deaktiviert. Reload...', 'info');
         setTimeout(() => window.location.reload(), 1500);
     }
 };
 
-// ===== Debug Functions (können in der Konsole aufgerufen werden) =====
-function enhanceVirtualScroller() {
-    const container = document.getElementById('treatment-list-container');
-    const list = document.getElementById('treatment-list');
-    
-    if (!container || !list) return;
-    
-    // Verhindere Scroll-Konflikte
-    container.addEventListener('touchstart', (e) => {
-        // Markiere als Liste-Scroll, nicht Pull-to-Refresh
-        container.dataset.isScrolling = 'true';
-    }, { passive: true });
-    
-    container.addEventListener('touchend', () => {
-        // Reset nach kurzer Verzögerung
-        setTimeout(() => {
-            container.dataset.isScrolling = 'false';
-        }, 100);
-    }, { passive: true });
-    
-    // Bessere Scroll-Performance
-    let scrollTimeout;
-    container.addEventListener('scroll', () => {
-        clearTimeout(scrollTimeout);
-        scrollTimeout = setTimeout(() => {
-            // Smooth scrolling ended
-            container.style.scrollBehavior = 'auto';
-        }, 150);
-    }, { passive: true });
-    
-    // Verhindere überscrollling das Pull-to-Refresh triggert
-    container.addEventListener('scroll', (e) => {
-        if (container.scrollTop < 0) {
-            container.scrollTop = 0;
-        }
-    }, { passive: false });
-}
+// ===== Debug Functions für Konsole =====
 window.debugServiceWorker = async function() {
     if (!('serviceWorker' in navigator)) {
         console.log('Service Worker nicht unterstützt');
@@ -1443,10 +1254,10 @@ window.debugServiceWorker = async function() {
 };
 
 // Füge Debug-Info zur Konsole hinzu
-console.log('🐷 Sauen App geladen!');
-console.log('Debug: Tippen Sie debugServiceWorker() in die Konsole für Cache-Info');
+console.log('🐷 Mobile Sauen App geladen!');
+console.log('Debug: debugServiceWorker() für Cache-Info');
 
-// ===== Pull to Refresh - Deutlich weniger aggressiv =====
+// ===== MOBILE-OPTIMIERTE Pull to Refresh =====
 function setupPullToRefresh() {
     let startY = 0;
     let isPulling = false;
@@ -1454,32 +1265,28 @@ function setupPullToRefresh() {
     let hasScrolled = false;
     const pullElement = document.getElementById('pull-to-refresh');
     
-    // Viel weniger aggressive Konfiguration
+    // SEHR restriktive mobile Konfiguration
     const config = {
-        minDistance: 120,       // Deutlich mehr Abstand (war 80)
-        triggerDistance: 200,   // Viel mehr zum Triggern (war 140)
-        minDuration: 800,       // Längere Dauer erforderlich (war 300)
-        scrollTolerance: 10,    // Mehr Scroll-Toleranz (war 5)
-        velocityThreshold: 0.5, // Höhere Geschwindigkeit (war 0.3)
-        maxInitialVelocity: 2.0 // Neue: Verhindert zu schnelle Gesten
+        minDistance: 150,       // Noch mehr Abstand
+        triggerDistance: 250,   // Viel mehr zum Triggern
+        minDuration: 1000,      // Länger halten erforderlich
+        scrollTolerance: 15,    // Mehr Scroll-Toleranz
+        velocityThreshold: 0.3, // Niedrigere Geschwindigkeit
+        maxInitialVelocity: 1.5 // Verhindert schnelle Gesten
     };
     
-    // Verbesserte Scroll-Erkennung
     let scrollDetectionTimer;
     let lastScrollTop = 0;
     
     function isAtTop() {
         const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-        
-        // Einfache Prüfung - nur Window-Scroll
         return scrollTop <= config.scrollTolerance;
     }
     
     function detectScrollIntent(currentY) {
         const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
         
-        // Wenn sich die Scroll-Position ändert, ist es ein Scroll nicht Pull
-        if (Math.abs(scrollTop - lastScrollTop) > 2) {
+        if (Math.abs(scrollTop - lastScrollTop) > 3) {
             hasScrolled = true;
             return true;
         }
@@ -1488,31 +1295,27 @@ function setupPullToRefresh() {
     }
     
     document.addEventListener('touchstart', (e) => {
-        // Reset
         hasScrolled = false;
         lastScrollTop = window.pageYOffset || document.documentElement.scrollTop;
         
-        // Nur bei wirklich oberster Position UND nicht beim Scrollen
         if (isAtTop() && !hasScrolled) {
             startY = e.touches[0].clientY;
             pullStartTime = Date.now();
             isPulling = true;
             
-            // Überwache Scroll-Aktivität
             clearTimeout(scrollDetectionTimer);
             scrollDetectionTimer = setTimeout(() => {
                 if (!isAtTop()) {
                     isPulling = false;
                     pullElement.classList.remove('visible', 'refreshing');
                 }
-            }, 100);
+            }, 150);
         }
     }, { passive: true });
     
     document.addEventListener('touchmove', (e) => {
         if (!isPulling) return;
         
-        // Prüfe auf Scroll-Intent
         if (detectScrollIntent() || !isAtTop()) {
             isPulling = false;
             pullElement.classList.remove('visible', 'refreshing');
@@ -1524,14 +1327,14 @@ function setupPullToRefresh() {
         const duration = Date.now() - pullStartTime;
         const velocity = diff / duration;
         
-        // Verhindere zu schnelle Gesten (Scroll-Intent)
+        // Verhindere zu schnelle Gesten
         if (velocity > config.maxInitialVelocity) {
             isPulling = false;
             pullElement.classList.remove('visible', 'refreshing');
             return;
         }
         
-        // Sehr restriktive Bedingungen
+        // Sehr restriktive Bedingungen für mobile
         if (diff > config.minDistance && 
             duration > config.minDuration && 
             isAtTop() && 
@@ -1541,10 +1344,8 @@ function setupPullToRefresh() {
             
             pullElement.classList.add('visible');
             
-            // Trigger nur bei sehr bewusster Geste
             if (diff > config.triggerDistance) {
                 pullElement.classList.add('refreshing');
-                // Verhindere scroll während refresh-state
                 e.preventDefault();
             }
         } else {
@@ -1569,7 +1370,6 @@ function setupPullToRefresh() {
             isAtTop() && 
             !hasScrolled) {
             
-            // Länger warten vor Reload
             setTimeout(() => {
                 window.location.reload();
             }, 500);
@@ -1597,10 +1397,40 @@ function setupPullToRefresh() {
         }, 50);
     }, { passive: true });
     
-    // Touch-Cancel für bessere Robustheit
+    // Touch-Cancel für bessere mobile Robustheit
     document.addEventListener('touchcancel', () => {
         pullElement.classList.remove('visible', 'refreshing');
         isPulling = false;
         hasScrolled = false;
     }, { passive: true });
 }
+
+// Mobile-spezifische Animationen hinzufügen
+const mobileAnimations = `
+    @keyframes slideDown {
+        from { 
+            transform: translateX(-50%) translateY(-20px); 
+            opacity: 0; 
+        }
+        to { 
+            transform: translateX(-50%) translateY(0); 
+            opacity: 1; 
+        }
+    }
+    
+    @keyframes slideUp {
+        from { 
+            transform: translateX(-50%) translateY(0); 
+            opacity: 1; 
+        }
+        to { 
+            transform: translateX(-50%) translateY(-20px); 
+            opacity: 0; 
+        }
+    }
+`;
+
+// Füge mobile Animationen hinzu
+const styleSheet = document.createElement('style');
+styleSheet.textContent = mobileAnimations;
+document.head.appendChild(styleSheet);
