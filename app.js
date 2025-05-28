@@ -388,19 +388,7 @@ async function addFollowUpTreatment(parentId, treatmentData) {
     }
 }
 
-// ===== Template Handling =====
-function applyTemplate() {
-    const templateId = document.getElementById('template-select').value;
-    if (templateId && TEMPLATES[templateId]) {
-        const template = TEMPLATES[templateId];
-        document.getElementById('tiertyp').value = template.tiertyp;
-        document.getElementById('diagnosis').value = template.diagnosis;
-        document.getElementById('medication').value = template.medication;
-        document.getElementById('dosage').value = template.dosage;
-        document.getElementById('treatment-duration').value = template.duration;
-        document.getElementById('administrationMethod').value = template.method;
-    }
-}
+
 
 function showTemplateCard(templateId) {
     hideTemplateCards();
