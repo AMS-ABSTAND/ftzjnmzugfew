@@ -574,7 +574,7 @@ function createTreatmentElement(treatment) {
         statusClass = 'status-follow-up';
     }
     
-    // Get latest treatment data
+    // Get all treatments (support both new and old format)
     const treatments = treatment.treatments || [{
         date: treatment.treatmentDate || treatment.date,
         diagnosis: treatment.diagnosis,
@@ -588,8 +588,9 @@ function createTreatmentElement(treatment) {
     }];
     
     const latestTreatment = treatments[treatments.length - 1];
+    const hasMultipleTreatments = treatments.length > 1;
     
-    // Calculate waiting period - compact version
+    // Calculate waiting period from latest treatment
     let waitingInfo = '';
     if (latestTreatment.waitingPeriod && latestTreatment.date) {
         const endDate = new Date(latestTreatment.date);
@@ -602,16 +603,16 @@ function createTreatmentElement(treatment) {
         }
     }
     
-    // Treatment count info - more compact
-    const treatmentCountText = treatments.length > 1 ? ` (${treatments.length}x)` : '';
+    // Treatment count info
+    const treatmentCountText = hasMultipleTreatments ? ` (${treatments.length}x)` : '';
     
-    // Format date more compactly
+    // Format date compactly
     const formattedDate = new Date(latestTreatment.date).toLocaleDateString('de-DE', {
         day: '2-digit',
         month: '2-digit'
     });
     
-    // Create compact additional details
+    // Create compact additional details for latest treatment
     const additionalDetails = [];
     if (latestTreatment.person) additionalDetails.push(`👤${latestTreatment.person}`);
     if (latestTreatment.duration) additionalDetails.push(`⏱️${latestTreatment.duration}T`);
@@ -623,13 +624,13 @@ function createTreatmentElement(treatment) {
             ${additionalDetails.map(detail => `<span class="detail-item">${detail}</span>`).join('')}
         </div>` : '';
     
-    // Compact medication line
+    // Compact medication line for latest treatment
     const medicationLine = latestTreatment.medication ? 
         `<div class="medication-line">
             <strong>💊</strong> ${latestTreatment.medication}${latestTreatment.dosage ? ` (${latestTreatment.dosage})` : ''}
         </div>` : '';
     
-    // Compact notes
+    // Compact notes for latest treatment
     const notesLine = latestTreatment.notes ? 
         `<div class="notes-line">📝 ${latestTreatment.notes.length > 50 ? latestTreatment.notes.substring(0, 47) + '...' : latestTreatment.notes}</div>` : '';
     
@@ -641,6 +642,16 @@ function createTreatmentElement(treatment) {
         'Genesen': 'Genesen'
     }[treatment.status] || treatment.status;
     
+    // Create timeline HTML for multiple treatments
+    const timelineHTML = hasMultipleTreatments ? createTimelineHTML(treatments) : '';
+    
+    // Expand/Collapse button for multiple treatments
+    const expandButton = hasMultipleTreatments ? 
+        `<button class="expand-toggle" onclick="toggleTimeline(${treatment.id})" aria-label="Verlauf anzeigen">
+            <span class="expand-icon">▼</span>
+            <span class="expand-text">Verlauf anzeigen</span>
+        </button>` : '';
+    
     item.innerHTML = `
         <div class="simple-treatment-card">
             <div class="treatment-main-info">
@@ -651,13 +662,17 @@ function createTreatmentElement(treatment) {
                             <span class="sau-number">${treatment.sauNumber}</span>
                             <span class="tiertyp">${treatment.tiertyp}${treatmentCountText}</span>
                         </div>
-                        <div class="treatment-date">${formattedDate}</div>
+                        <div class="treatment-date">Letzte: ${formattedDate}</div>
                     </div>
                 </div>
                 <div class="status-badge ${statusClass}">${statusText}</div>
             </div>
             
             <div class="treatment-details">
+                <div class="treatment-summary">
+                    <strong>Aktuelle Behandlung:</strong>
+                </div>
+                
                 <div class="diagnosis-line">
                     <strong>🔍</strong> ${latestTreatment.diagnosis}
                 </div>
@@ -666,7 +681,11 @@ function createTreatmentElement(treatment) {
                 ${additionalDetailsHTML}
                 ${notesLine}
                 ${waitingInfo}
+                
+                ${expandButton}
             </div>
+            
+            ${timelineHTML}
             
             <div class="action-buttons compact">
                 <button class="action-btn edit-btn" onclick="editTreatment(${treatment.id})">
@@ -685,6 +704,174 @@ function createTreatmentElement(treatment) {
     `;
     
     return item;
+}
+
+// Neue Funktion: Timeline HTML erstellen
+function createTimelineHTML(treatments) {
+    const timelineItems = treatments.map((treatment, index) => {
+        const treatmentDate = new Date(treatment.date).toLocaleDateString('de-DE', {
+            day: '2-digit',
+            month: '2-digit',
+            year: '2-digit'
+        });
+        
+        const isLatest = index === treatments.length - 1;
+        const isFirst = index === 0;
+        
+        // Timeline item status
+        let timelineStatus = 'completed';
+        if (isLatest) timelineStatus = 'current';
+        
+        // Compact treatment details
+        const treatmentDetails = [];
+        if (treatment.medication) treatmentDetails.push(`💊 ${treatment.medication}`);
+        if (treatment.dosage) treatmentDetails.push(`⚖️ ${treatment.dosage}`);
+        if (treatment.person) treatmentDetails.push(`👤 ${treatment.person}`);
+        if (treatment.duration) treatmentDetails.push(`⏱️ ${treatment.duration}T`);
+        
+        return `
+            <div class="timeline-item ${timelineStatus}">
+                <div class="timeline-marker">
+                    <div class="timeline-dot ${timelineStatus}">
+                        ${isFirst ? '🏁' : isLatest ? '📍' : '💊'}
+                    </div>
+                    ${index < treatments.length - 1 ? '<div class="timeline-line"></div>' : ''}
+                </div>
+                <div class="timeline-content">
+                    <div class="timeline-header">
+                        <span class="timeline-title">
+                            ${isFirst ? 'Erstbehandlung' : `Behandlung ${index + 1}`}
+                        </span>
+                        <span class="timeline-date">${treatmentDate}</span>
+                    </div>
+                    <div class="timeline-diagnosis">🔍 ${treatment.diagnosis}</div>
+                    ${treatmentDetails.length > 0 ? 
+                        `<div class="timeline-details">
+                            ${treatmentDetails.map(detail => `<span class="timeline-detail-item">${detail}</span>`).join('')}
+                        </div>` : ''}
+                    ${treatment.notes ? 
+                        `<div class="timeline-notes">📝 ${treatment.notes.length > 40 ? treatment.notes.substring(0, 37) + '...' : treatment.notes}</div>` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    return `
+        <div class="treatment-timeline" id="timeline-${Date.now()}" style="display: none;">
+            <div class="timeline-header-section">
+                <h4 class="timeline-title">📋 Behandlungsverlauf</h4>
+                <div class="timeline-summary">${treatments.length} Behandlungen</div>
+            </div>
+            <div class="timeline-container">
+                ${timelineItems}
+            </div>
+        </div>
+    `;
+}
+
+// Neue Funktion: Timeline Toggle
+window.toggleTimeline = function(treatmentId) {
+    const treatmentCard = document.querySelector(`[data-id="${treatmentId}"]`);
+    if (!treatmentCard) return;
+    
+    const timeline = treatmentCard.querySelector('.treatment-timeline');
+    const expandButton = treatmentCard.querySelector('.expand-toggle');
+    const expandIcon = expandButton.querySelector('.expand-icon');
+    const expandText = expandButton.querySelector('.expand-text');
+    
+    if (!timeline) return;
+    
+    const isExpanded = timeline.style.display !== 'none';
+    
+    if (isExpanded) {
+        // Collapse Timeline
+        timeline.style.animation = 'slideUp 0.3s ease-out';
+        setTimeout(() => {
+            timeline.style.display = 'none';
+            timeline.style.animation = '';
+        }, 300);
+        
+        expandIcon.textContent = '▼';
+        expandText.textContent = 'Verlauf anzeigen';
+        expandButton.setAttribute('aria-expanded', 'false');
+        
+        // Haptic feedback (if supported)
+        if (navigator.vibrate) {
+            navigator.vibrate(50);
+        }
+    } else {
+        // Expand Timeline
+        timeline.style.display = 'block';
+        timeline.style.animation = 'slideDown 0.3s ease-out';
+        
+        expandIcon.textContent = '▲';
+        expandText.textContent = 'Verlauf verstecken';
+        expandButton.setAttribute('aria-expanded', 'true');
+        
+        // Haptic feedback (if supported)
+        if (navigator.vibrate) {
+            navigator.vibrate([50, 100, 50]);
+        }
+        
+        // Scroll into view on mobile
+        setTimeout(() => {
+            if (window.innerWidth <= 768) {
+                timeline.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'nearest',
+                    inline: 'nearest' 
+                });
+            }
+        }, 350);
+    }
+};
+
+// Verbesserte mobile Animationen
+const timelineAnimations = `
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            max-height: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            max-height: 500px;
+            transform: translateY(0);
+        }
+    }
+    
+    @keyframes slideUp {
+        from {
+            opacity: 1;
+            max-height: 500px;
+            transform: translateY(0);
+        }
+        to {
+            opacity: 0;
+            max-height: 0;
+            transform: translateY(-10px);
+        }
+    }
+    
+    @keyframes timelineFadeIn {
+        from {
+            opacity: 0;
+            transform: translateX(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+`;
+
+// Timeline Animationen zu Stylesheet hinzufügen
+if (!document.getElementById('timeline-animations')) {
+    const timelineStyleSheet = document.createElement('style');
+    timelineStyleSheet.id = 'timeline-animations';
+    timelineStyleSheet.textContent = timelineAnimations;
+    document.head.appendChild(timelineStyleSheet);
 }
 
 // ===== Edit Treatment =====
